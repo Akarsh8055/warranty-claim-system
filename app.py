@@ -4,7 +4,7 @@ import string
 import logging
 import traceback
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, send_file, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import uuid
 from models import db, WarrantyClaim
@@ -26,14 +26,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_url_path='/static', static_folder='static')
+# Initialize Flask app with static file configuration
+app = Flask(__name__, 
+    static_url_path='',
+    static_folder='static'
+)
 
 # Environment-specific configuration
 if os.environ.get('FLASK_ENV') == 'production':
     # Production settings
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
     app.config['STATIC_FOLDER'] = 'static'
-    app.config['STATIC_URL_PATH'] = '/static'
+    app.config['STATIC_URL_PATH'] = ''
     
     # Try Redis first, fallback to filesystem if it fails
     try:
@@ -528,6 +532,11 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
+
+# Add route to serve static files in production
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
     # Ensure directories exist
