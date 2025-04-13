@@ -27,15 +27,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, 
+    static_url_path='',
+    static_folder='static'
+)
 
 # Basic configuration
 app.config.update(
     SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-key-123'),
     UPLOAD_FOLDER=os.environ.get('UPLOAD_FOLDER', 'uploads'),
     MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # 5MB max file size
-    STATIC_FOLDER='static',
-    STATIC_URL_PATH='/static'
 )
 
 # Database configuration
@@ -65,7 +66,7 @@ else:
 # Ensure upload and session directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
-os.makedirs(app.config['STATIC_FOLDER'], exist_ok=True)
+os.makedirs('static/css', exist_ok=True)
 
 # Initialize extensions
 db.init_app(app)
@@ -518,7 +519,7 @@ def health_check():
 # Serve static files in production
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(app.config['STATIC_FOLDER'], filename)
+    return send_from_directory('static', filename)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)
