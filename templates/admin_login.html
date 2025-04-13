@@ -23,13 +23,18 @@
         }
 
         .admin-login-header h1 {
-            color: #fff;
-            font-size: 2rem;
+            background: linear-gradient(135deg, #e9a1ff 0%, #c779d0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            font-weight: 600;
             margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .admin-login-form .form-group {
             margin-bottom: 1.5rem;
+            position: relative;
         }
 
         .admin-login-form input[type="text"],
@@ -46,9 +51,10 @@
 
         .admin-login-form input[type="text"]:focus,
         .admin-login-form input[type="password"]:focus {
-            border-color: var(--primary-color);
+            border-color: #e9a1ff;
             background: rgba(255, 255, 255, 0.1);
             outline: none;
+            box-shadow: 0 0 15px rgba(233, 161, 255, 0.2);
         }
 
         .admin-login-form input::placeholder {
@@ -58,7 +64,7 @@
         .admin-login-form button {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            background: linear-gradient(135deg, #e9a1ff 0%, #c779d0 100%);
             border: none;
             border-radius: 8px;
             color: #fff;
@@ -70,7 +76,7 @@
 
         .admin-login-form button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(126, 34, 206, 0.3);
+            box-shadow: 0 4px 15px rgba(233, 161, 255, 0.3);
         }
 
         .flash-messages {
@@ -94,6 +100,23 @@
         .flash-message.success {
             background: rgba(34, 197, 94, 0.2);
             border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .back-to-home {
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .back-to-home a {
+            color: #e9a1ff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .back-to-home a:hover {
+            color: #c779d0;
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -122,10 +145,12 @@
             </div>
             <button type="submit">Login</button>
         </form>
+        <div class="back-to-home">
+            <a href="{{ url_for('index') }}">Back to Home</a>
+        </div>
     </div>
 
     <script>
-        // Animate form on page load
         document.addEventListener('DOMContentLoaded', function() {
             const container = document.querySelector('.admin-login-container');
             container.style.opacity = '0';
