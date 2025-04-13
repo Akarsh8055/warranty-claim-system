@@ -59,7 +59,13 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
 
 # Initialize Flask-Session
-Session(app)
+try:
+    Session(app)
+    app.logger.info("Session initialized successfully")
+except Exception as e:
+    app.logger.error(f"Error initializing session: {str(e)}")
+    app.logger.error(traceback.format_exc())
+    # Continue anyway, as we have fallback mechanisms
 
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
@@ -251,10 +257,15 @@ def admin_login():
                 return redirect(url_for('admin_login'))
             
             if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-                session['admin_authenticated'] = True
-                session.permanent = True
-                app.logger.info("Admin login successful")
-                return redirect(url_for('admin_dashboard'))
+                try:
+                    session['admin_authenticated'] = True
+                    session.permanent = True
+                    app.logger.info("Admin login successful")
+                    return redirect(url_for('admin_dashboard'))
+                except Exception as e:
+                    app.logger.error(f"Session error during login: {str(e)}")
+                    flash('Session error. Please try again.', 'error')
+                    return redirect(url_for('admin_login'))
             else:
                 flash('Invalid username or password', 'error')
                 app.logger.warning(f"Failed login attempt for username: {username}")
