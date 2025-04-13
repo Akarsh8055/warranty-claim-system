@@ -12,37 +12,47 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 import hmac
 import time
+from flask_session import Session
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
-if os.environ.get('PRODUCTION'):
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
-        handlers=[logging.StreamHandler()]
-    )
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Basic Configuration
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+# Session Configuration
+app.config['SECRET_KEY'] = 'dev-secret-key-123'  # Fixed key for development
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for development
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+# Initialize Flask-Session
+Session(app)
+
+# Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['SESSION_COOKIE_SECURE'] = os.environ.get('PRODUCTION', False)
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Admin credentials from environment variables
+# Admin credentials - with defaults for development
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'WarrantyClaim2024@Secure')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
-# Ensure upload directory exists
+# Ensure directories exist
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
+if not os.path.exists(app.config['SESSION_FILE_DIR']):
+    os.makedirs(app.config['SESSION_FILE_DIR'])
 
 # Initialize database
 db.init_app(app)
@@ -208,109 +218,74 @@ def confirmation():
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     try:
-        # Clear any existing sessions for security
-        session.clear()
+        # Debug logging
+        logger.info("Admin login attempt")
         
-        if request.method == 'POST':
-            # Get client IP for rate limiting
-            client_ip = request.remote_addr
-            
-            # Check rate limiting (implement a simple in-memory rate limit)
-            current_time = time.time()
-            if hasattr(app, 'login_attempts'):
-                # Clean up old attempts
-                app.login_attempts = {ip: attempts for ip, attempts in app.login_attempts.items() 
-                                   if current_time - attempts['timestamp'] < 300}  # 5 minutes window
-                
-                if client_ip in app.login_attempts:
-                    if app.login_attempts[client_ip]['count'] >= 5:  # Max 5 attempts per 5 minutes
-                        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-                        flash('Too many login attempts. Please try again later.', 'error')
-                        return render_template('admin_login.html'), 429
-                    app.login_attempts[client_ip]['count'] += 1
-                else:
-                    app.login_attempts[client_ip] = {'count': 1, 'timestamp': current_time}
-            else:
-                app.login_attempts = {client_ip: {'count': 1, 'timestamp': current_time}}
+        # If already logged in, redirect to dashboard
+        if session.get('admin_authenticated'):
+            return redirect(url_for('admin_dashboard'))
 
+        if request.method == 'POST':
             username = request.form.get('username')
             password = request.form.get('password')
 
-            # Log attempt details (without sensitive info)
-            logger.info(f"Login attempt from IP: {client_ip}")
+            logger.info(f"Login attempt with username: {username}")
 
             if not username or not password:
-                logger.warning(f"Admin login attempt with missing credentials from IP: {client_ip}")
                 flash('Please provide both username and password.', 'error')
-                return render_template('admin_login.html'), 400
+                return render_template('admin_login.html')
 
-            # Get admin credentials from environment variables
-            admin_username = os.environ.get('ADMIN_USERNAME')
-            admin_password = os.environ.get('ADMIN_PASSWORD')
-
-            # Check if environment variables are set
-            if not admin_username or not admin_password:
-                logger.error("Admin credentials not set in environment variables")
-                flash('Server configuration error. Please contact administrator.', 'error')
-                return render_template('admin_login.html'), 500
-
-            # Constant time comparison to prevent timing attacks
-            if hmac.compare_digest(str(username), str(admin_username)) and hmac.compare_digest(str(password), str(admin_password)):
-                logger.info(f"Successful admin login from IP: {client_ip}")
+            # Check credentials
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                # Clear any existing session
+                session.clear()
                 
-                # Set session with additional security measures
+                # Set new session data
                 session['admin_authenticated'] = True
-                session['admin_ip'] = client_ip
+                session['admin_ip'] = request.remote_addr
                 session['admin_ua'] = request.user_agent.string
                 session['last_activity'] = time.time()
                 session.permanent = True
-                app.permanent_session_lifetime = timedelta(hours=1)  # Session expires after 1 hour
                 
-                # Clear failed attempts for this IP
-                if client_ip in app.login_attempts:
-                    del app.login_attempts[client_ip]
-                
+                logger.info(f"Successful login for user: {username}")
+                flash('Login successful!', 'success')
                 return redirect(url_for('admin_dashboard'))
             else:
-                logger.warning(f"Failed admin login attempt from IP: {client_ip}")
+                logger.warning(f"Failed login attempt for username: {username}")
                 flash('Invalid username or password.', 'error')
-                return render_template('admin_login.html'), 401
+                return render_template('admin_login.html')
 
         return render_template('admin_login.html')
-
     except Exception as e:
-        logger.error(f"Error during admin login: {str(e)}")
+        logger.error(f"Error in login: {str(e)}")
         logger.error(traceback.format_exc())
-        flash('An unexpected error occurred. Please try again.', 'error')
-        return render_template('admin_login.html'), 500
+        flash('An error occurred. Please try again.', 'error')
+        return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
-    session.pop('admin_authenticated', None)
-    return redirect(url_for('admin_login'))
+    try:
+        session.clear()
+        flash('You have been logged out successfully.', 'success')
+        return redirect(url_for('admin_login'))
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
+        flash('Error during logout.', 'error')
+        return redirect(url_for('admin_login'))
 
-@app.route('/authorized/management/admin/dashboard')
+@app.route('/admin/dashboard')
 def admin_dashboard():
     try:
-        # Check if user is authenticated
         if not session.get('admin_authenticated'):
-            logger.warning("Unauthorized access attempt to admin dashboard")
             flash('Please login to access the admin dashboard.', 'error')
             return redirect(url_for('admin_login'))
 
-        # Fetch all warranty claims from the database
         claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
-        
-        # Convert claims to dictionary format
-        claims_data = [claim.to_dict() for claim in claims]
-        
-        logger.info(f"Admin dashboard loaded successfully. Found {len(claims)} claims.")
-        return render_template('admin.html', claims=claims_data)
-
+        return render_template('admin.html', claims=claims)
     except Exception as e:
-        logger.error(f"Error loading admin dashboard: {str(e)}")
+        logger.error(f"Error in admin dashboard: {str(e)}")
         logger.error(traceback.format_exc())
-        flash('An error occurred while loading the dashboard.', 'error')
+        flash('Error loading dashboard. Please try again.', 'error')
         return redirect(url_for('admin_login'))
 
 @app.route('/admin/view/<int:claim_id>')
