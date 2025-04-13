@@ -1,0 +1,3 @@
+[33m06bf38e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Update admin login route with better error handling and session management
+[33m1c2ec50[m Updated admin login styling and routes
+[33m335c85f[m Initial commit: Warranty Claim System

@@ -18,6 +18,7 @@ class WarrantyClaim(db.Model):
     warranty_option = db.Column(db.String(50), nullable=False)
     file_path = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=True, onupdate=datetime.utcnow)
     status = db.Column(db.String(20), nullable=False, default='pending')
 
     def __repr__(self):
@@ -37,5 +38,6 @@ class WarrantyClaim(db.Model):
             'warranty_option': self.warranty_option,
             'file_path': self.file_path,
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'status': self.status
         }

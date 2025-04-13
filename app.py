@@ -255,66 +255,101 @@ def admin_dashboard():
 
 @app.route('/admin/view/<int:claim_id>')
 def view_claim(claim_id):
-    if not session.get('admin_authenticated'):
-        return jsonify({'error': 'Unauthorized'}), 401
-
     try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
+        if not session.get('admin_authenticated'):
+            logger.warning(f"Unauthorized attempt to view claim {claim_id}")
+            return jsonify({'error': 'Unauthorized access'}), 401
+
+        claim = WarrantyClaim.query.get(claim_id)
+        if not claim:
+            logger.error(f"Claim not found: {claim_id}")
+            return jsonify({'error': 'Claim not found'}), 404
+
         claim_data = claim.to_dict()
         claim_data['has_file'] = bool(claim.file_path)
+        logger.info(f"Successfully retrieved claim details for ID: {claim_id}")
         return jsonify(claim_data)
+
     except Exception as e:
-        logger.error(f"Error viewing claim: {str(e)}")
-        return jsonify({'error': 'Failed to load claim details'}), 500
+        logger.error(f"Error viewing claim {claim_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Failed to retrieve claim details'}), 500
 
 @app.route('/admin/download/<int:claim_id>')
 def download_file(claim_id):
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('admin_login'))
-
     try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
-        if not claim.file_path:
-            flash('No file attached to this claim.', 'error')
-            return redirect(url_for('admin_dashboard'))
-        
-        return send_file(claim.file_path, as_attachment=True)
+        if not session.get('admin_authenticated'):
+            logger.warning(f"Unauthorized attempt to download file for claim {claim_id}")
+            return "Unauthorized access", 401
+
+        claim = WarrantyClaim.query.get(claim_id)
+        if not claim or not claim.file_path:
+            logger.error(f"File not found for claim: {claim_id}")
+            return "File not found", 404
+
+        if not os.path.exists(claim.file_path):
+            logger.error(f"Physical file missing for claim {claim_id}: {claim.file_path}")
+            return "File not found", 404
+
+        logger.info(f"Downloading file for claim ID: {claim_id}")
+        return send_file(
+            claim.file_path,
+            as_attachment=True,
+            download_name=os.path.basename(claim.file_path)
+        )
+
     except Exception as e:
-        logger.error(f"Error downloading file: {str(e)}")
-        flash('Error downloading file.', 'error')
-        return redirect(url_for('admin_dashboard'))
+        logger.error(f"Error downloading file for claim {claim_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return "Error downloading file", 500
 
 @app.route('/admin/approve/<int:claim_id>', methods=['POST'])
 def approve_claim(claim_id):
-    if not session.get('admin_authenticated'):
-        return jsonify({'error': 'Unauthorized'}), 401
-
     try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
+        if not session.get('admin_authenticated'):
+            logger.warning(f"Unauthorized attempt to approve claim {claim_id}")
+            return jsonify({'error': 'Unauthorized access'}), 401
+
+        claim = WarrantyClaim.query.get(claim_id)
+        if not claim:
+            logger.error(f"Claim not found for approval: {claim_id}")
+            return jsonify({'error': 'Claim not found'}), 404
+
         claim.status = 'approved'
-        claim.updated_at = datetime.now()
+        claim.updated_at = datetime.utcnow()
         db.session.commit()
-        return {'message': 'Claim approved successfully'}, 200
+        logger.info(f"Successfully approved claim {claim_id}")
+        return jsonify({'message': 'Claim approved successfully'})
+
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error approving claim: {str(e)}")
-        return {'error': 'Failed to approve claim'}, 500
+        logger.error(f"Error approving claim {claim_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Failed to approve claim'}), 500
 
 @app.route('/admin/reject/<int:claim_id>', methods=['POST'])
 def reject_claim(claim_id):
-    if not session.get('admin_authenticated'):
-        return jsonify({'error': 'Unauthorized'}), 401
-
     try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
+        if not session.get('admin_authenticated'):
+            logger.warning(f"Unauthorized attempt to reject claim {claim_id}")
+            return jsonify({'error': 'Unauthorized access'}), 401
+
+        claim = WarrantyClaim.query.get(claim_id)
+        if not claim:
+            logger.error(f"Claim not found for rejection: {claim_id}")
+            return jsonify({'error': 'Claim not found'}), 404
+
         claim.status = 'rejected'
-        claim.updated_at = datetime.now()
+        claim.updated_at = datetime.utcnow()
         db.session.commit()
-        return {'message': 'Claim rejected successfully'}, 200
+        logger.info(f"Successfully rejected claim {claim_id}")
+        return jsonify({'message': 'Claim rejected successfully'})
+
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error rejecting claim: {str(e)}")
-        return {'error': 'Failed to reject claim'}, 500
+        logger.error(f"Error rejecting claim {claim_id}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Failed to reject claim'}), 500
 
 @app.route('/authorized/management/admin/export')
 def export_csv():

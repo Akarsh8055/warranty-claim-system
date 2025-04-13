@@ -45,7 +45,7 @@
                     <tr>
                         <td>{{ claim.name }}</td>
                         <td>{{ claim.product }}</td>
-                        <td>{{ claim.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ claim.created_at.strftime('%Y-%m-%d') if claim.created_at else 'N/A' }}</td>
                         <td>
                             <span class="status-badge {{ claim.status }}">{{ claim.status }}</span>
                         </td>
@@ -55,11 +55,11 @@
                                 View
                             </button>
                             {% if claim.status == 'pending' %}
-                            <button onclick="updateStatus('{{ claim.id }}', 'approved')" class="approve-btn">
+                            <button onclick="updateClaimStatus('{{ claim.id }}', 'approve')" class="approve-btn">
                                 <span class="icon">✓</span>
                                 Approve
                             </button>
-                            <button onclick="updateStatus('{{ claim.id }}', 'rejected')" class="reject-btn">
+                            <button onclick="updateClaimStatus('{{ claim.id }}', 'reject')" class="reject-btn">
                                 <span class="icon">✕</span>
                                 Reject
                             </button>
@@ -127,11 +127,57 @@
             }
         }
 
+        async function updateClaimStatus(claimId, action) {
+            try {
+                const response = await fetch(`/admin/${action}/${claimId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+
+                const data = await response.json();
+                
+                if (data.message) {
+                    // Refresh the page to show updated status
+                    window.location.reload();
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to update claim status. Please try again.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add click handlers for approve/reject buttons
+            document.querySelectorAll('.approve-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    updateClaimStatus(this.dataset.claimId, 'approve');
+                });
+            });
+
+            document.querySelectorAll('.reject-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    updateClaimStatus(this.dataset.claimId, 'reject');
+                });
+            });
+        });
+
         // View claim details
         function viewClaim(claimId) {
-            fetch(`/claim/${claimId}`)
+            fetch(`/admin/view/${claimId}`)
                 .then(response => {
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            window.location.href = '/admin/login';
+                            return;
+                        }
                         throw new Error('Network response was not ok');
                     }
                     return response.json();
@@ -145,13 +191,14 @@
                     let detailsDiv = document.getElementById("claimDetails");
                     
                     const statusClass = data.status.toLowerCase();
-                    const formattedDate = new Date(data.created_at).toLocaleString();
+                    const createdAt = data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A';
+                    const updatedAt = data.updated_at ? new Date(data.updated_at).toLocaleString() : 'N/A';
                     
                     detailsDiv.innerHTML = `
                         <div class="claim-details-grid">
                             <div class="detail-item">
                                 <strong>Reference Number:</strong>
-                                <span>${data.reference_number}</span>
+                                <span>${data.reference_number || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Status:</strong>
@@ -159,103 +206,108 @@
                             </div>
                             <div class="detail-item">
                                 <strong>Name:</strong>
-                                <span>${data.name}</span>
+                                <span>${data.name || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Email:</strong>
-                                <span>${data.email}</span>
+                                <span>${data.email || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Phone:</strong>
-                                <span>${data.phone}</span>
+                                <span>${data.phone || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Product:</strong>
-                                <span>${data.product}</span>
+                                <span>${data.product || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Purchase Date:</strong>
-                                <span>${data.purchase_date}</span>
+                                <span>${data.purchase_date || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Defect Reason:</strong>
-                                <span>${data.defect_reason}</span>
+                                <span>${data.defect_reason || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Warranty Option:</strong>
-                                <span>${data.warranty_option}</span>
+                                <span>${data.warranty_option || 'N/A'}</span>
                             </div>
                             <div class="detail-item">
                                 <strong>Submitted:</strong>
-                                <span>${formattedDate}</span>
+                                <span>${createdAt}</span>
                             </div>
+                            ${data.updated_at ? `
+                            <div class="detail-item">
+                                <strong>Last Updated:</strong>
+                                <span>${updatedAt}</span>
+                            </div>
+                            ` : ''}
                             <div class="detail-item full-width">
                                 <strong>Issue Description:</strong>
-                                <p>${data.issue}</p>
+                                <p>${data.issue || 'N/A'}</p>
                             </div>
                             ${data.has_file ? `
                             <div class="detail-item">
                                 <strong>Attachment:</strong>
-                                <a href="/authorized/management/admin/download/${data.id}" class="download-btn">
+                                <a href="/admin/download/${claimId}" class="download-btn" target="_blank">
                                     <span class="icon">📎</span> Download File
                                 </a>
                             </div>
                             ` : ''}
                         </div>
                     `;
+                    
                     modal.style.display = "block";
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to load claim details. Please try again.');
+                    alert('Failed to load claim details: ' + error.message);
                 });
         }
 
-        // Update claim status
-        function updateStatus(claimId, status) {
-            const button = event.target;
-            const originalText = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = `<span class="icon">⌛</span> Processing...`;
+        // Handle file downloads
+        document.addEventListener('click', function(e) {
+            if (e.target.matches('.download-btn') || e.target.closest('.download-btn')) {
+                const downloadBtn = e.target.matches('.download-btn') ? e.target : e.target.closest('.download-btn');
+                e.preventDefault();
+                
+                fetch(downloadBtn.href)
+                    .then(response => {
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                window.location.href = '/admin/login';
+                                return;
+                            }
+                            throw new Error('File not found or error downloading');
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = '';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to download file: ' + error.message);
+                    });
+            }
+        });
 
-            const endpoint = status === 'approved' 
-                ? `/authorized/management/admin/approve/${claimId}`
-                : `/authorized/management/admin/reject/${claimId}`;
-
-            fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    // Show success feedback
-                    button.innerHTML = `<span class="icon">✓</span> Done!`;
-                    setTimeout(() => {
-                        location.reload();
-                    }, 1000);
-                } else {
-                    throw new Error(data.error || 'Failed to update status');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                button.innerHTML = originalText;
-                button.disabled = false;
-                alert('Failed to update claim status. Please try again.');
-            });
+        // Close modal
+        let modal = document.getElementById("claimModal");
+        let span = document.getElementsByClassName("close")[0];
+        
+        span.onclick = function() {
+            modal.style.display = "none";
         }
-
-        // Modal close button
-        document.querySelector(".close").onclick = function() {
-            document.getElementById("claimModal").style.display = "none";
-        }
-
-        // Close modal when clicking outside
+        
         window.onclick = function(event) {
-            let modal = document.getElementById("claimModal");
             if (event.target == modal) {
                 modal.style.display = "none";
             }

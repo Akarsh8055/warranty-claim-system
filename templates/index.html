@@ -29,25 +29,25 @@
         </div>
 
         <div class="form-content">
-            <form action="{{ url_for('submit_claim') }}" method="post" enctype="multipart/form-data" id="warranty-form">
+            <form action="{{ url_for('submit_claim') }}" method="POST" enctype="multipart/form-data" class="warranty-form">
                 <div class="form-group">
                     <label for="name">Full Name</label>
-                    <input type="text" id="name" name="name" required placeholder="Enter your full name">
+                    <input type="text" id="name" name="name" required>
                 </div>
 
                 <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" name="email" required placeholder="Enter your email address">
+                    <input type="email" id="email" name="email" required>
                 </div>
 
                 <div class="form-group">
                     <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" name="phone" required placeholder="Enter your phone number">
+                    <input type="tel" id="phone" name="phone" required>
                 </div>
 
                 <div class="form-group">
-                    <label for="product">Product Name/Model</label>
-                    <input type="text" id="product" name="product" required placeholder="Enter product name or model">
+                    <label for="product">Product Name</label>
+                    <input type="text" id="product" name="product" required>
                 </div>
 
                 <div class="form-group">
@@ -57,66 +57,115 @@
 
                 <div class="form-group">
                     <label for="issue">Issue Description</label>
-                    <textarea id="issue" name="issue" rows="4" required placeholder="Please describe the issue in detail"></textarea>
+                    <textarea id="issue" name="issue" required></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="defect-reason">Defect Reason</label>
                     <select id="defect-reason" name="defect-reason" required>
-                        <option value="">Select a reason</option>
+                        <option value="">Select defect reason</option>
                         <option value="manufacturing">Manufacturing Defect</option>
-                        <option value="damage">Physical Damage</option>
-                        <option value="performance">Performance Issue</option>
-                        <option value="other">Other</option>
+                        <option value="design">Design Flaw</option>
+                        <option value="wear-and-tear">Normal Wear and Tear</option>
+                        <option value="accidental">Accidental Damage</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="warranty-option">Warranty Option</label>
+                    <label for="warranty-option">Warranty Type</label>
                     <select id="warranty-option" name="warranty-option" required>
                         <option value="">Select warranty type</option>
                         <option value="standard">Standard Warranty</option>
                         <option value="extended">Extended Warranty</option>
+                        <option value="lifetime">Lifetime Warranty</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label>Supporting Documents</label>
+                    <label for="supporting_document">Supporting Documents</label>
                     <div class="file-upload">
-                        <div class="file-upload-text">Drag and drop your files here or click to browse</div>
-                        <input type="file" id="document" name="document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
-                        <span class="file-formats">Accepted formats: PDF, JPG, PNG, DOC, DOCX</span>
+                        <div class="upload-icon-wrapper">
+                            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <div class="file-upload-text">
+                            <strong>Drag and drop your files here</strong>
+                            <span>or click to browse</span>
+                        </div>
+                        <div class="file-formats">Accepted formats: PDF, JPG, PNG (max 5MB)</div>
+                        <input type="file" id="supporting_document" name="supporting_document" accept=".pdf,.jpg,.jpeg,.png" required>
                     </div>
                 </div>
 
-                <div class="checkbox-group">
+                <div class="form-group checkbox-group">
                     <input type="checkbox" id="confirm" name="confirm" required>
                     <label for="confirm">I confirm that all the information provided above is correct and accurate</label>
                 </div>
 
-                <button type="submit" id="submit-btn" disabled>Submit Claim</button>
+                <button type="submit">Submit Claim</button>
             </form>
         </div>
     </div>
 
     <script>
-        // Enable submit button only when checkbox is checked
-        document.getElementById('confirm').addEventListener('change', function() {
-            document.getElementById('submit-btn').disabled = !this.checked;
-        });
-
-        // Show loading overlay on form submission
-        document.getElementById('warranty-form').addEventListener('submit', function() {
-            document.querySelector('.loading-overlay').style.display = 'flex';
-            document.getElementById('submit-btn').disabled = true;
-        });
-
         // File upload visual feedback
-        document.getElementById('document').addEventListener('change', function() {
+        document.getElementById('supporting_document').addEventListener('change', function() {
             const fileName = this.files[0]?.name;
             if (fileName) {
-                this.parentElement.querySelector('.file-upload-text').textContent = `Selected file: ${fileName}`;
+                const fileText = this.closest('.file-upload').querySelector('.file-upload-text strong');
+                fileText.textContent = `Selected file: ${fileName}`;
             }
+        });
+
+        // Drag and drop functionality
+        const fileUpload = document.querySelector('.file-upload');
+        const fileInput = document.getElementById('supporting_document');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileUpload.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            fileUpload.classList.add('drag-over');
+        }
+
+        function unhighlight(e) {
+            fileUpload.classList.remove('drag-over');
+        }
+
+        fileUpload.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            
+            if (files[0]) {
+                const fileText = fileUpload.querySelector('.file-upload-text strong');
+                fileText.textContent = `Selected file: ${files[0].name}`;
+            }
+        }
+
+        // Show loading overlay on form submission
+        document.querySelector('.warranty-form').addEventListener('submit', function() {
+            document.querySelector('.loading-overlay').style.display = 'flex';
+            document.querySelector('.warranty-form button[type="submit"]').disabled = true;
         });
 
         // Animate form on page load
