@@ -5,124 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - Warranty Claims</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-        .admin-login-container {
-            max-width: 400px;
-            margin: 2rem auto;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-
-        .admin-login-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .admin-login-header h1 {
-            background: linear-gradient(135deg, #e9a1ff 0%, #c779d0 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 2.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .admin-login-form .form-group {
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-
-        .admin-login-form input[type="text"],
-        .admin-login-form input[type="password"] {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .admin-login-form input[type="text"]:focus,
-        .admin-login-form input[type="password"]:focus {
-            border-color: #e9a1ff;
-            background: rgba(255, 255, 255, 0.1);
-            outline: none;
-            box-shadow: 0 0 15px rgba(233, 161, 255, 0.2);
-        }
-
-        .admin-login-form input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .admin-login-form button {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #e9a1ff 0%, #c779d0 100%);
-            border: none;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .admin-login-form button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(233, 161, 255, 0.3);
-        }
-
-        .flash-messages {
-            margin-bottom: 1.5rem;
-        }
-
-        .flash-message {
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 0.5rem;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-
-        .flash-message.error {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-
-        .flash-message.success {
-            background: rgba(34, 197, 94, 0.2);
-            border-color: rgba(34, 197, 94, 0.3);
-        }
-
-        .back-to-home {
-            text-align: center;
-            margin-top: 1rem;
-        }
-
-        .back-to-home a {
-            color: #e9a1ff;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .back-to-home a:hover {
-            color: #c779d0;
-            text-decoration: underline;
-        }
-    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="admin-login-container">
-        <div class="admin-login-header">
+    <div class="container admin-login-container">
+        <div class="success-header">
             <h1>Admin Login</h1>
         </div>
 
@@ -138,21 +25,23 @@
 
         <form method="POST" action="{{ url_for('admin_login') }}" class="admin-login-form">
             <div class="form-group">
-                <input type="text" id="username" name="username" placeholder="Username" required>
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
             </div>
             <div class="form-group">
-                <input type="password" id="password" name="password" placeholder="Password" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
             </div>
             <button type="submit">Login</button>
         </form>
-        <div class="back-to-home">
-            <a href="{{ url_for('index') }}">Back to Home</a>
+        <div class="back-link-wrapper">
+            <a href="{{ url_for('index') }}" class="back-link">Back to Home</a>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const container = document.querySelector('.admin-login-container');
+            const container = document.querySelector('.container');
             container.style.opacity = '0';
             container.style.transform = 'translateY(20px)';
             

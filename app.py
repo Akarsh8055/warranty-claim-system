@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import hmac
 import time
 from flask_session import Session
+import redis
 
 # Load environment variables
 load_dotenv()
@@ -27,13 +28,22 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# Session Configuration
-app.config['SECRET_KEY'] = 'dev-secret-key-123'  # Fixed key for development
-app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
-app.config['SESSION_COOKIE_SECURE'] = False  # Set to False for development
+# Environment-specific configuration
+if os.environ.get('FLASK_ENV') == 'production':
+    # Production settings
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+    app.config['SESSION_TYPE'] = 'redis'
+    app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_URL'))
+else:
+    # Development settings
+    app.config['SECRET_KEY'] = 'dev-secret-key-123'
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
+
+app.config['SESSION_COOKIE_SECURE'] = False
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
+app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
 
 # Initialize Flask-Session
 Session(app)
@@ -41,18 +51,10 @@ Session(app)
 # Database Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Admin credentials - with defaults for development
+# Admin credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-
-# Ensure directories exist
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
-if not os.path.exists(app.config['SESSION_FILE_DIR']):
-    os.makedirs(app.config['SESSION_FILE_DIR'])
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Admin@6906')
 
 # Initialize database
 db.init_app(app)
@@ -126,10 +128,10 @@ def submit_claim():
                     return redirect(url_for('index'))
 
                 try:
-                    filename = secure_filename(uploaded_file.filename)
-                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                filename = secure_filename(uploaded_file.filename)
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
                     file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                    uploaded_file.save(file_path)
+                uploaded_file.save(file_path)
                 except Exception as e:
                     logger.error(f"File upload error: {str(e)}")
                     flash('Error uploading file. Please try again.', 'error')
@@ -140,30 +142,30 @@ def submit_claim():
 
             try:
                 # Create new warranty claim
-                new_claim = WarrantyClaim(
-                    reference_number=reference_number,
-                    name=name,
-                    email=email,
-                    phone=phone,
-                    product=product,
+            new_claim = WarrantyClaim(
+                reference_number=reference_number,
+                name=name,
+                email=email,
+                phone=phone,
+                product=product,
                     purchase_date=purchase_date,
                     issue=issue,
-                    defect_reason=defect_reason,
-                    warranty_option=warranty_option,
+                defect_reason=defect_reason,
+                warranty_option=warranty_option,
                     file_path=file_path,
                     status='pending'
-                )
+            )
 
-                # Add and commit to database
-                db.session.add(new_claim)
-                db.session.commit()
+            # Add and commit to database
+            db.session.add(new_claim)
+            db.session.commit()
 
-                # Store data in session for confirmation page
-                session['reference_number'] = reference_number
-                session['claim_id'] = new_claim.id
+            # Store data in session for confirmation page
+            session['reference_number'] = reference_number
+            session['claim_id'] = new_claim.id
                 session['submission_data'] = new_claim.to_dict()
 
-                return redirect(url_for('confirmation'))
+            return redirect(url_for('confirmation'))
 
             except Exception as e:
                 logger.error(f"Database error: {str(e)}")
@@ -218,16 +220,13 @@ def confirmation():
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     try:
-        # Debug logging
-        logger.info("Admin login attempt")
-        
         # If already logged in, redirect to dashboard
         if session.get('admin_authenticated'):
             return redirect(url_for('admin_dashboard'))
 
-        if request.method == 'POST':
+    if request.method == 'POST':
             username = request.form.get('username')
-            password = request.form.get('password')
+        password = request.form.get('password')
 
             logger.info(f"Login attempt with username: {username}")
 
@@ -237,11 +236,8 @@ def admin_login():
 
             # Check credentials
             if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-                # Clear any existing session
-                session.clear()
-                
-                # Set new session data
-                session['admin_authenticated'] = True
+                # Set session data
+            session['admin_authenticated'] = True
                 session['admin_ip'] = request.remote_addr
                 session['admin_ua'] = request.user_agent.string
                 session['last_activity'] = time.time()
@@ -250,12 +246,12 @@ def admin_login():
                 logger.info(f"Successful login for user: {username}")
                 flash('Login successful!', 'success')
                 return redirect(url_for('admin_dashboard'))
-            else:
+        else:
                 logger.warning(f"Failed login attempt for username: {username}")
                 flash('Invalid username or password.', 'error')
                 return render_template('admin_login.html')
 
-        return render_template('admin_login.html')
+    return render_template('admin_login.html')
     except Exception as e:
         logger.error(f"Error in login: {str(e)}")
         logger.error(traceback.format_exc())
@@ -271,12 +267,12 @@ def admin_logout():
     except Exception as e:
         logger.error(f"Error during logout: {str(e)}")
         flash('Error during logout.', 'error')
-        return redirect(url_for('admin_login'))
+    return redirect(url_for('admin_login'))
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
     try:
-        if not session.get('admin_authenticated'):
+    if not session.get('admin_authenticated'):
             flash('Please login to access the admin dashboard.', 'error')
             return redirect(url_for('admin_login'))
 
@@ -290,30 +286,20 @@ def admin_dashboard():
 
 @app.route('/admin/view/<int:claim_id>')
 def view_claim(claim_id):
+    if not session.get('admin_authenticated'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
     try:
-        if not session.get('admin_authenticated'):
-            logger.warning(f"Unauthorized attempt to view claim {claim_id}")
-            return jsonify({'error': 'Unauthorized access'}), 401
-
-        claim = WarrantyClaim.query.get(claim_id)
-        if not claim:
-            logger.error(f"Claim not found: {claim_id}")
-            return jsonify({'error': 'Claim not found'}), 404
-
-        claim_data = claim.to_dict()
-        claim_data['has_file'] = bool(claim.file_path)
-        logger.info(f"Successfully retrieved claim details for ID: {claim_id}")
-        return jsonify(claim_data)
-
+    claim = WarrantyClaim.query.get_or_404(claim_id)
+        return jsonify(claim.to_dict())
     except Exception as e:
-        logger.error(f"Error viewing claim {claim_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Failed to retrieve claim details'}), 500
+        logger.error(f"Error viewing claim: {str(e)}")
+        return jsonify({'error': 'Failed to load claim details'}), 500
 
 @app.route('/admin/download/<int:claim_id>')
 def download_file(claim_id):
     try:
-        if not session.get('admin_authenticated'):
+    if not session.get('admin_authenticated'):
             logger.warning(f"Unauthorized attempt to download file for claim {claim_id}")
             return "Unauthorized access", 401
 
@@ -338,53 +324,67 @@ def download_file(claim_id):
         logger.error(traceback.format_exc())
         return "Error downloading file", 500
 
-@app.route('/admin/approve/<int:claim_id>', methods=['POST'])
+@app.route('/authorized/management/admin/approve/<int:claim_id>', methods=['POST'])
 def approve_claim(claim_id):
+    if not session.get('admin_logged_in'):
+        app.logger.warning(f'Unauthorized attempt to approve claim {claim_id}')
+        return jsonify({'success': False, 'error': 'Unauthorized access'}), 401
+    
     try:
-        if not session.get('admin_authenticated'):
-            logger.warning(f"Unauthorized attempt to approve claim {claim_id}")
-            return jsonify({'error': 'Unauthorized access'}), 401
-
-        claim = WarrantyClaim.query.get(claim_id)
-        if not claim:
-            logger.error(f"Claim not found for approval: {claim_id}")
-            return jsonify({'error': 'Claim not found'}), 404
-
+    claim = WarrantyClaim.query.get_or_404(claim_id)
+        if claim.status != 'pending':
+            return jsonify({
+                'success': False, 
+                'error': f'Cannot approve claim that is already {claim.status}'
+            }), 400
+            
         claim.status = 'approved'
-        claim.updated_at = datetime.utcnow()
         db.session.commit()
-        logger.info(f"Successfully approved claim {claim_id}")
-        return jsonify({'message': 'Claim approved successfully'})
-
+        
+        app.logger.info(f'Claim {claim_id} approved successfully')
+        return jsonify({
+            'success': True,
+            'message': f'Claim {claim.reference_number} has been approved'
+        })
+        
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error approving claim {claim_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Failed to approve claim'}), 500
+        app.logger.error(f'Error approving claim {claim_id}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while approving the claim'
+        }), 500
 
-@app.route('/admin/reject/<int:claim_id>', methods=['POST'])
+@app.route('/authorized/management/admin/reject/<int:claim_id>', methods=['POST'])
 def reject_claim(claim_id):
+    if not session.get('admin_logged_in'):
+        app.logger.warning(f'Unauthorized attempt to reject claim {claim_id}')
+        return jsonify({'success': False, 'error': 'Unauthorized access'}), 401
+    
     try:
-        if not session.get('admin_authenticated'):
-            logger.warning(f"Unauthorized attempt to reject claim {claim_id}")
-            return jsonify({'error': 'Unauthorized access'}), 401
-
-        claim = WarrantyClaim.query.get(claim_id)
-        if not claim:
-            logger.error(f"Claim not found for rejection: {claim_id}")
-            return jsonify({'error': 'Claim not found'}), 404
-
+        claim = WarrantyClaim.query.get_or_404(claim_id)
+        if claim.status != 'pending':
+            return jsonify({
+                'success': False, 
+                'error': f'Cannot reject claim that is already {claim.status}'
+            }), 400
+            
         claim.status = 'rejected'
-        claim.updated_at = datetime.utcnow()
         db.session.commit()
-        logger.info(f"Successfully rejected claim {claim_id}")
-        return jsonify({'message': 'Claim rejected successfully'})
-
+        
+        app.logger.info(f'Claim {claim_id} rejected successfully')
+        return jsonify({
+            'success': True,
+            'message': f'Claim {claim.reference_number} has been rejected'
+        })
+        
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error rejecting claim {claim_id}: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': 'Failed to reject claim'}), 500
+        app.logger.error(f'Error rejecting claim {claim_id}: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while rejecting the claim'
+        }), 500
 
 @app.route('/authorized/management/admin/export')
 def export_csv():
@@ -478,6 +478,24 @@ def warranty_claim():
 
     return render_template('index.html')
 
+@app.route('/health')
+def health_check():
+    try:
+        # Test database connection
+        db.session.execute('SELECT 1')
+        # Test Redis connection if in production
+        if os.environ.get('FLASK_ENV') == 'production':
+            redis_client = redis.from_url(os.environ.get('REDIS_URL'))
+            redis_client.ping()
+        return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port)
+    # Ensure directories exist
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    if app.config['SESSION_TYPE'] == 'filesystem':
+        os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+    
+    app.run(host='127.0.0.1', port=5001, debug=True)

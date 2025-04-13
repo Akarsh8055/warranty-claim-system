@@ -13,21 +13,21 @@
             <h1>Warranty Claims Dashboard</h1>
             <div class="admin-controls">
                 <div class="search-box">
-                    <input type="text" id="searchInput" placeholder="Search claims..." class="search-input">
+                    <input type="text" id="searchInput" placeholder="Search claims..." onkeyup="searchTable()">
                 </div>
                 <div class="filter-box">
-                    <select id="statusFilter" class="status-filter">
+                    <select id="statusFilter" onchange="filterByStatus()">
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
                     </select>
                 </div>
-                <button onclick="exportToCSV()" class="export-btn">
-                    <span class="icon">📊</span> Export to CSV
-                </button>
+                <a href="{{ url_for('export_csv') }}" class="export-btn">
+                    <span>📊</span> Export to CSV
+                </a>
                 <a href="{{ url_for('admin_logout') }}" class="logout-btn">
-                    <span class="icon">🚪</span> Logout
+                    <span>🚪</span> Logout
                 </a>
             </div>
         </div>
@@ -54,14 +54,14 @@
                         <td>{{ claim.created_at.strftime('%Y-%m-%d') }}</td>
                         <td class="actions">
                             <button onclick="viewClaim('{{ claim.id }}')" class="view-btn">
-                                <span class="icon">👁️</span> View
+                                <span>👁️</span> View
                             </button>
                             {% if claim.status == 'pending' %}
                             <button onclick="updateClaimStatus('{{ claim.id }}', 'approve')" class="approve-btn">
-                                <span class="icon">✓</span> Approve
+                                <span>✓</span> Approve
                             </button>
                             <button onclick="updateClaimStatus('{{ claim.id }}', 'reject')" class="reject-btn">
-                                <span class="icon">✕</span> Reject
+                                <span>✕</span> Reject
                             </button>
                             {% endif %}
                         </td>
@@ -75,8 +75,8 @@
     <!-- Modal for viewing claim details -->
     <div id="claimModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <div id="claimDetails" class="claim-details-grid"></div>
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="claimDetails"></div>
         </div>
     </div>
 
@@ -85,7 +85,7 @@
         function searchTable() {
             let input = document.getElementById("searchInput");
             let filter = input.value.toLowerCase();
-            let table = document.querySelector("table");
+            let table = document.querySelector(".admin-table");
             let tr = table.getElementsByTagName("tr");
 
             for (let i = 1; i < tr.length; i++) {
@@ -107,144 +107,74 @@
 
         // Filter by status
         function filterByStatus() {
-            let filter = document.getElementById("statusFilter").value;
-            let table = document.querySelector("table");
+            let filter = document.getElementById("statusFilter").value.toLowerCase();
+            let table = document.querySelector(".admin-table");
             let tr = table.getElementsByTagName("tr");
 
             for (let i = 1; i < tr.length; i++) {
                 let statusCell = tr[i].getElementsByTagName("td")[3];
                 if (statusCell) {
                     let status = statusCell.textContent || statusCell.innerText;
-                    tr[i].style.display = (filter === "all" || status.toLowerCase().includes(filter)) ? "" : "none";
+                    tr[i].style.display = (filter === "all" || status.toLowerCase() === filter) ? "" : "none";
                 }
             }
         }
-
-        async function updateClaimStatus(claimId, action) {
-            try {
-                const response = await fetch(`/admin/${action}/${claimId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-
-                const data = await response.json();
-                
-                if (data.message) {
-                    // Refresh the page to show updated status
-                    window.location.reload();
-                } else {
-                    throw new Error(data.error || 'Unknown error occurred');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Failed to update claim status. Please try again.');
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add click handlers for approve/reject buttons
-            document.querySelectorAll('.approve-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    updateClaimStatus(this.dataset.claimId, 'approve');
-                });
-            });
-
-            document.querySelectorAll('.reject-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    updateClaimStatus(this.dataset.claimId, 'reject');
-                });
-            });
-        });
 
         // View claim details
         function viewClaim(claimId) {
             fetch(`/admin/view/${claimId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            window.location.href = '/admin/login';
-                            return;
-                        }
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    
-                    let modal = document.getElementById("claimModal");
-                    let detailsDiv = document.getElementById("claimDetails");
-                    
-                    const statusClass = data.status.toLowerCase();
-                    const createdAt = data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A';
-                    const updatedAt = data.updated_at ? new Date(data.updated_at).toLocaleString() : 'N/A';
+                    const modal = document.getElementById("claimModal");
+                    const detailsDiv = document.getElementById("claimDetails");
                     
                     detailsDiv.innerHTML = `
+                        <h2>Claim Details</h2>
                         <div class="claim-details-grid">
                             <div class="detail-item">
-                                <strong>Reference Number:</strong>
-                                <span>${data.reference_number || 'N/A'}</span>
+                                <strong>Reference Number</strong>
+                                <span>${data.reference_number}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Status:</strong>
-                                <span class="status-badge ${statusClass}">${data.status}</span>
+                                <strong>Name</strong>
+                                <span>${data.name}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Name:</strong>
-                                <span>${data.name || 'N/A'}</span>
+                                <strong>Email</strong>
+                                <span>${data.email}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Email:</strong>
-                                <span>${data.email || 'N/A'}</span>
+                                <strong>Phone</strong>
+                                <span>${data.phone}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Phone:</strong>
-                                <span>${data.phone || 'N/A'}</span>
+                                <strong>Product</strong>
+                                <span>${data.product}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Product:</strong>
-                                <span>${data.product || 'N/A'}</span>
+                                <strong>Purchase Date</strong>
+                                <span>${data.purchase_date}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Purchase Date:</strong>
-                                <span>${data.purchase_date || 'N/A'}</span>
+                                <strong>Status</strong>
+                                <span class="status-badge ${data.status}">${data.status}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Defect Reason:</strong>
-                                <span>${data.defect_reason || 'N/A'}</span>
+                                <strong>Defect Reason</strong>
+                                <span>${data.defect_reason}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Warranty Option:</strong>
-                                <span>${data.warranty_option || 'N/A'}</span>
+                                <strong>Warranty Option</strong>
+                                <span>${data.warranty_option}</span>
                             </div>
                             <div class="detail-item">
-                                <strong>Submitted:</strong>
-                                <span>${createdAt}</span>
+                                <strong>Issue Description</strong>
+                                <span>${data.issue}</span>
                             </div>
-                            ${data.updated_at ? `
+                            ${data.file_path ? `
                             <div class="detail-item">
-                                <strong>Last Updated:</strong>
-                                <span>${updatedAt}</span>
-                            </div>
-                            ` : ''}
-                            <div class="detail-item full-width">
-                                <strong>Issue Description:</strong>
-                                <p>${data.issue || 'N/A'}</p>
-                            </div>
-                            ${data.has_file ? `
-                            <div class="detail-item">
-                                <strong>Attachment:</strong>
-                                <a href="/admin/download/${claimId}" class="download-btn" target="_blank">
-                                    <span class="icon">📎</span> Download File
-                                </a>
+                                <strong>Supporting Document</strong>
+                                <a href="/admin/download/${data.id}" class="download-link">Download</a>
                             </div>
                             ` : ''}
                         </div>
@@ -254,55 +184,63 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Failed to load claim details: ' + error.message);
+                    alert('Failed to load claim details');
                 });
         }
 
-        // Handle file downloads
-        document.addEventListener('click', function(e) {
-            if (e.target.matches('.download-btn') || e.target.closest('.download-btn')) {
-                const downloadBtn = e.target.matches('.download-btn') ? e.target : e.target.closest('.download-btn');
-                e.preventDefault();
-                
-                fetch(downloadBtn.href)
-                    .then(response => {
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                window.location.href = '/admin/login';
-                                return;
-                            }
-                            throw new Error('File not found or error downloading');
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = '';
-                        document.body.appendChild(a);
-                        a.click();
-                        window.URL.revokeObjectURL(url);
-                        document.body.removeChild(a);
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Failed to download file: ' + error.message);
-                    });
-            }
-        });
-
         // Close modal
-        let modal = document.getElementById("claimModal");
-        let span = document.getElementsByClassName("close")[0];
-        
-        span.onclick = function() {
-            modal.style.display = "none";
+        function closeModal() {
+            document.getElementById("claimModal").style.display = "none";
         }
-        
+
+        // Close modal when clicking outside
         window.onclick = function(event) {
+            let modal = document.getElementById("claimModal");
             if (event.target == modal) {
                 modal.style.display = "none";
+            }
+        }
+
+        // Update claim status
+        async function updateClaimStatus(claimId, action) {
+            try {
+                const endpoint = action === 'approve' 
+                    ? `/authorized/management/admin/approve/${claimId}`
+                    : `/authorized/management/admin/reject/${claimId}`;
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to update claim status');
+                }
+                
+                const data = await response.json();
+                if (data.success) {
+                    // Show success message
+                    const statusCell = document.querySelector(`#claim-${claimId} .status`);
+                    if (statusCell) {
+                        statusCell.textContent = action === 'approve' ? 'Approved' : 'Rejected';
+                        statusCell.className = `status ${action === 'approve' ? 'approved' : 'rejected'}`;
+                    }
+                    
+                    // Disable the buttons for this claim
+                    const buttons = document.querySelectorAll(`#claim-${claimId} button`);
+                    buttons.forEach(btn => btn.disabled = true);
+                    
+                    alert(data.message || `Claim successfully ${action}ed`);
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message || 'Failed to update claim status. Please try again.');
             }
         }
     </script>

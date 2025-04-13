@@ -22,8 +22,8 @@ wheels/
 
 # Virtual Environment
 venv/
-ENV/
 env/
+ENV/
 
 # IDE
 .idea/
@@ -31,24 +31,31 @@ env/
 *.swp
 *.swo
 
+# Flask
+instance/
+.webassets-cache
+flask_session/
+
 # Database
 *.db
-instance/
+*.sqlite3
+
+# Uploads
+uploads/
 
 # Environment variables
 .env
 
-# Uploaded files
-uploads/
-
 # Logs
 *.log
 
-# Windows
+# OS specific
+.DS_Store
 Thumbs.db
+
+# Windows
 Desktop.ini
 
 # macOS
-.DS_Store
 .AppleDouble
 .LSOverride 

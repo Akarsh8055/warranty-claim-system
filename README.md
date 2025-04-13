@@ -1,41 +1,29 @@
 # Warranty Claim Management System
 
-A web-based warranty claim management system built with Flask, featuring a user-friendly claim submission form and a secure admin panel for claim management.
+A Flask-based web application for managing warranty claims with an admin dashboard.
 
 ## Features
 
 - User-friendly warranty claim submission form
-- Secure admin panel with login authentication
-- Persistent storage of warranty claims
 - File upload support for claim documentation
-- Claim status management (approve/reject)
-- Search and filter functionality
-- Export claims to CSV
-- Modern and responsive UI design
-
-## Prerequisites
-
-- Python 3.8 or higher
-- pip (Python package installer)
-- Virtual environment (recommended)
+- Admin dashboard for claim management
+- Claim approval/rejection functionality
+- CSV export for claims data
+- Email notification system
+- Secure authentication for admin access
 
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd warranty-claim-project
+git clone https://github.com/yourusername/warranty-claim-system.git
+cd warranty-claim-system
 ```
 
 2. Create and activate a virtual environment:
 ```bash
-# Windows
 python -m venv venv
-venv\Scripts\activate
-
-# Unix/MacOS
-python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
 3. Install dependencies:
@@ -43,13 +31,19 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-4. Create a .env file in the project root and add the following:
-```env
-SECRET_KEY=your_secret_key_here
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your_admin_password
-DATABASE_URL=sqlite:///warranty_claims.db
-UPLOAD_FOLDER=uploads
+4. Set up environment variables in `.env`:
+```
+FLASK_ENV=development
+SECRET_KEY=your-secret-key
+ADMIN_USERNAME=your-admin-username
+ADMIN_PASSWORD=your-admin-password
+DATABASE_URL=your-database-url
+REDIS_URL=your-redis-url  # Required for production
+```
+
+5. Initialize the database:
+```bash
+flask db upgrade
 ```
 
 ## Running the Application
@@ -58,60 +52,30 @@ UPLOAD_FOLDER=uploads
 ```bash
 python app.py
 ```
-The application will be available at http://127.0.0.1:5001
 
-### Production (Unix/Linux/MacOS)
+### Production
 ```bash
-gunicorn -c gunicorn_config.py app:app
+gunicorn app:app
 ```
 
-Note: For Windows production deployment, consider using waitress or running on a Linux server with Gunicorn.
+## Configuration
 
-## Usage
-
-1. **Submitting a Warranty Claim**
-   - Visit http://127.0.0.1:5001
-   - Fill out the warranty claim form
-   - Upload supporting documents (optional)
-   - Submit the claim
-
-2. **Accessing Admin Panel**
-   - Visit http://127.0.0.1:5001/admin/login
-   - Login with admin credentials
-   - View, approve, or reject claims
-   - Search and filter claims
-   - Export claims to CSV
-
-## Directory Structure
-
-```
-warranty_claim_project/
-├── app.py              # Main application file
-├── models.py           # Database models
-├── requirements.txt    # Project dependencies
-├── static/            # Static files (CSS, JS)
-├── templates/         # HTML templates
-├── uploads/           # Uploaded files
-└── instance/          # Instance-specific files
-```
-
-## Security Features
-
-- Session-based authentication
-- Password protection for admin panel
-- Rate limiting for login attempts
-- Secure file upload handling
-- CSRF protection
-- XSS prevention
-- SQL injection prevention through SQLAlchemy
+- `FLASK_ENV`: Set to 'development' or 'production'
+- `SECRET_KEY`: Secret key for session management
+- `ADMIN_USERNAME`: Admin panel username
+- `ADMIN_PASSWORD`: Admin panel password
+- `DATABASE_URL`: Database connection URL
+- `REDIS_URL`: Redis connection URL (required for production)
+- `UPLOAD_FOLDER`: Path for uploaded files
 
 ## Contributing
 
 1. Fork the repository
-2. Create a new branch
-3. Make your changes
-4. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
