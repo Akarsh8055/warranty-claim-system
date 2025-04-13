@@ -52,6 +52,7 @@ else:
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 
+# Session configuration
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
@@ -64,7 +65,7 @@ Session(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Admin credentials
+# Admin credentials - with fallback values
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
@@ -283,14 +284,23 @@ def admin_dashboard():
     try:
         if not session.get('admin_authenticated'):
             flash('Please login to access the admin dashboard.', 'error')
+            app.logger.warning("Unauthorized access attempt to admin dashboard")
             return redirect(url_for('admin_login'))
 
-        claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
-        return render_template('admin.html', claims=claims)
+        try:
+            claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
+            app.logger.info(f"Successfully loaded {len(claims)} claims for admin dashboard")
+            return render_template('admin.html', claims=claims)
+        except Exception as e:
+            app.logger.error(f"Database error in admin dashboard: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            flash('Error loading claims data. Please try again.', 'error')
+            return redirect(url_for('admin_login'))
+            
     except Exception as e:
         app.logger.error(f"Error in admin dashboard: {str(e)}")
         app.logger.error(traceback.format_exc())
-        flash('Error loading dashboard. Please try again.', 'error')
+        flash('An unexpected error occurred. Please try again.', 'error')
         return redirect(url_for('admin_login'))
 
 @app.route('/admin/view/<int:claim_id>')
