@@ -41,7 +41,9 @@ if os.environ.get('FLASK_ENV') == 'production':
             app.config['SESSION_REDIS'] = redis.from_url(redis_url)
             app.logger.info("Using Redis for session storage")
         else:
-            raise ValueError("REDIS_URL not set")
+            app.logger.warning("REDIS_URL not set, using filesystem session")
+            app.config['SESSION_TYPE'] = 'filesystem'
+            app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
     except Exception as e:
         app.logger.warning(f"Redis connection failed, falling back to filesystem: {str(e)}")
         app.config['SESSION_TYPE'] = 'filesystem'
