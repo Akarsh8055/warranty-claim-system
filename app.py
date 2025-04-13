@@ -26,15 +26,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app with static file configuration
+# Initialize Flask app
 app = Flask(__name__)
+
+# Configure static files
+app.static_folder = 'static'
+app.static_url_path = '/static'
 
 # Environment-specific configuration
 if os.environ.get('FLASK_ENV') == 'production':
     # Production settings
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
-    app.config['STATIC_FOLDER'] = os.path.join(os.getcwd(), 'static')
-    app.config['STATIC_URL_PATH'] = ''
+    app.config.update(
+        SECRET_KEY=os.environ.get('SECRET_KEY', os.urandom(24).hex()),
+        STATIC_FOLDER='static',
+        STATIC_URL_PATH='/static'
+    )
     
     # Try Redis first, fallback to filesystem if it fails
     try:
@@ -53,9 +59,11 @@ if os.environ.get('FLASK_ENV') == 'production':
         app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 else:
     # Development settings
-    app.config['SECRET_KEY'] = 'dev-secret-key-123'
-    app.config['SESSION_TYPE'] = 'filesystem'
-    app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
+    app.config.update(
+        SECRET_KEY='dev-secret-key-123',
+        SESSION_TYPE='filesystem',
+        SESSION_FILE_DIR=os.path.join(app.root_path, 'flask_session')
+    )
 
 # Session configuration
 app.config['SESSION_COOKIE_SECURE'] = True
@@ -535,9 +543,9 @@ def health_check():
 def serve_static(filename):
     return send_from_directory(app.static_folder, filename)
 
-# Ensure static folder exists
-os.makedirs(os.path.join(os.getcwd(), 'static'), exist_ok=True)
-os.makedirs(os.path.join(os.getcwd(), 'static/css'), exist_ok=True)
+# Ensure static folders exist
+os.makedirs(app.static_folder, exist_ok=True)
+os.makedirs(os.path.join(app.static_folder, 'css'), exist_ok=True)
 
 if __name__ == '__main__':
     # Ensure directories exist
