@@ -27,10 +27,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
-app = Flask(__name__, 
-    static_url_path='',
-    static_folder='static'
-)
+app = Flask(__name__)
 
 # Basic configuration
 app.config.update(
@@ -38,6 +35,10 @@ app.config.update(
     UPLOAD_FOLDER=os.environ.get('UPLOAD_FOLDER', 'uploads'),
     MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # 5MB max file size
 )
+
+# Configure static files
+app.static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+app.static_url_path = '/static'
 
 # Database configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
@@ -66,7 +67,7 @@ else:
 # Ensure upload and session directories exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
-os.makedirs('static/css', exist_ok=True)
+os.makedirs(os.path.join(app.static_folder, 'css'), exist_ok=True)
 
 # Initialize extensions
 db.init_app(app)
@@ -516,10 +517,10 @@ def health_check():
             'error': str(e)
         }), 500
 
-# Serve static files in production
+# Serve static files
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory('static', filename)
+    return send_from_directory(app.static_folder, filename)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5001, debug=True)
