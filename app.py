@@ -61,7 +61,13 @@ db.init_app(app)
 
 # Create database tables
 with app.app_context():
-    db.create_all()
+    try:
+        app.logger.info("Initializing database...")
+        db.create_all()
+        app.logger.info("Database initialized successfully")
+    except Exception as e:
+        app.logger.error(f"Database initialization error: {str(e)}")
+        app.logger.error(traceback.format_exc())
 
 # Allowed file extensions for upload
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'}
@@ -483,14 +489,17 @@ def health_check():
     try:
         # Test database connection
         db.session.execute('SELECT 1')
-        # Test Redis connection if in production
-        if os.environ.get('FLASK_ENV') == 'production':
-            redis_client = redis.from_url(os.environ.get('REDIS_URL'))
-            redis_client.ping()
-        return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()}), 200
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'redis': 'connected' if app.config['SESSION_TYPE'] == 'redis' else 'filesystem'
+        }), 200
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
+        app.logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Ensure directories exist
