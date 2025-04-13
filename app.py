@@ -128,13 +128,13 @@ def submit_claim():
                     return redirect(url_for('index'))
 
                 try:
-                filename = secure_filename(uploaded_file.filename)
-                unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                uploaded_file.save(file_path)
+                    filename = secure_filename(uploaded_file.filename)
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    uploaded_file.save(file_path)
+                    app.logger.info(f'File saved successfully: {file_path}')
                 except Exception as e:
-                    logger.error(f"File upload error: {str(e)}")
-                    flash('Error uploading file. Please try again.', 'error')
+                    app.logger.error(f'Error saving file: {str(e)}')
+                    flash('Error saving file. Please try again.', 'error')
                     return redirect(url_for('index'))
 
             # Generate reference number
@@ -142,30 +142,30 @@ def submit_claim():
 
             try:
                 # Create new warranty claim
-            new_claim = WarrantyClaim(
-                reference_number=reference_number,
-                name=name,
-                email=email,
-                phone=phone,
-                product=product,
+                new_claim = WarrantyClaim(
+                    reference_number=reference_number,
+                    name=name,
+                    email=email,
+                    phone=phone,
+                    product=product,
                     purchase_date=purchase_date,
                     issue=issue,
-                defect_reason=defect_reason,
-                warranty_option=warranty_option,
+                    defect_reason=defect_reason,
+                    warranty_option=warranty_option,
                     file_path=file_path,
                     status='pending'
-            )
+                )
 
-            # Add and commit to database
-            db.session.add(new_claim)
-            db.session.commit()
+                # Add and commit to database
+                db.session.add(new_claim)
+                db.session.commit()
 
-            # Store data in session for confirmation page
-            session['reference_number'] = reference_number
-            session['claim_id'] = new_claim.id
+                # Store data in session for confirmation page
+                session['reference_number'] = reference_number
+                session['claim_id'] = new_claim.id
                 session['submission_data'] = new_claim.to_dict()
 
-            return redirect(url_for('confirmation'))
+                return redirect(url_for('confirmation'))
 
             except Exception as e:
                 logger.error(f"Database error: {str(e)}")
@@ -224,9 +224,9 @@ def admin_login():
         if session.get('admin_authenticated'):
             return redirect(url_for('admin_dashboard'))
 
-    if request.method == 'POST':
+        if request.method == 'POST':
             username = request.form.get('username')
-        password = request.form.get('password')
+            password = request.form.get('password')
 
             logger.info(f"Login attempt with username: {username}")
 
@@ -237,7 +237,7 @@ def admin_login():
             # Check credentials
             if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
                 # Set session data
-            session['admin_authenticated'] = True
+                session['admin_authenticated'] = True
                 session['admin_ip'] = request.remote_addr
                 session['admin_ua'] = request.user_agent.string
                 session['last_activity'] = time.time()
@@ -246,12 +246,12 @@ def admin_login():
                 logger.info(f"Successful login for user: {username}")
                 flash('Login successful!', 'success')
                 return redirect(url_for('admin_dashboard'))
-        else:
+            else:
                 logger.warning(f"Failed login attempt for username: {username}")
                 flash('Invalid username or password.', 'error')
                 return render_template('admin_login.html')
 
-    return render_template('admin_login.html')
+        return render_template('admin_login.html')
     except Exception as e:
         logger.error(f"Error in login: {str(e)}")
         logger.error(traceback.format_exc())
@@ -272,7 +272,7 @@ def admin_logout():
 @app.route('/admin/dashboard')
 def admin_dashboard():
     try:
-    if not session.get('admin_authenticated'):
+        if not session.get('admin_authenticated'):
             flash('Please login to access the admin dashboard.', 'error')
             return redirect(url_for('admin_login'))
 
@@ -290,7 +290,7 @@ def view_claim(claim_id):
         return jsonify({'error': 'Unauthorized'}), 401
 
     try:
-    claim = WarrantyClaim.query.get_or_404(claim_id)
+        claim = WarrantyClaim.query.get_or_404(claim_id)
         return jsonify(claim.to_dict())
     except Exception as e:
         logger.error(f"Error viewing claim: {str(e)}")
@@ -299,7 +299,7 @@ def view_claim(claim_id):
 @app.route('/admin/download/<int:claim_id>')
 def download_file(claim_id):
     try:
-    if not session.get('admin_authenticated'):
+        if not session.get('admin_authenticated'):
             logger.warning(f"Unauthorized attempt to download file for claim {claim_id}")
             return "Unauthorized access", 401
 
@@ -331,7 +331,7 @@ def approve_claim(claim_id):
         return jsonify({'success': False, 'error': 'Unauthorized access'}), 401
     
     try:
-    claim = WarrantyClaim.query.get_or_404(claim_id)
+        claim = WarrantyClaim.query.get_or_404(claim_id)
         if claim.status != 'pending':
             return jsonify({
                 'success': False, 
