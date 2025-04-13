@@ -1341,184 +1341,169 @@ tr:last-child td {
         font-size: 0.9rem;
     }
 
-    /* Admin Dashboard Styles */
+    /* Admin Dashboard Improvements */
     .admin-dashboard {
-        padding: 1rem;
-    }
-
-    .admin-header {
-        flex-direction: column;
-        gap: 1rem;
-        text-align: center;
-    }
-
-    .admin-header h1 {
-        font-size: 1.5rem;
+        padding: 0.5rem;
+        margin: 0;
+        border-radius: 12px;
     }
 
     .admin-controls {
+        display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.75rem;
+        padding: 1rem;
+    }
+
+    .search-box input,
+    .filter-box select {
+        height: 44px;
+        font-size: 16px; /* Prevent iOS zoom */
+    }
+
+    .export-btn,
+    .logout-btn {
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+    }
+
+    .table-responsive {
+        margin: 1rem -0.5rem;
+        padding: 0 0.5rem;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .admin-table {
-        font-size: 0.85rem;
+        font-size: 14px;
+        width: 100%;
+        min-width: 600px; /* Ensure horizontal scroll on mobile */
     }
 
     .admin-table th,
     .admin-table td {
-        padding: 0.5rem;
+        padding: 0.75rem 0.5rem;
+        white-space: nowrap;
     }
 
-    .admin-table .actions {
-        flex-direction: column;
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        font-size: 12px;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: nowrap;
         gap: 0.5rem;
     }
 
-    .admin-table .actions button {
-        width: 100%;
+    .actions button {
         padding: 0.5rem;
-        font-size: 0.85rem;
+        min-height: 44px;
+        font-size: 14px;
+        white-space: nowrap;
     }
 
-    /* Modal Styles */
+    /* Modal Improvements */
     .modal-content {
-        width: 95%;
-        margin: 1rem auto;
+        width: 90%;
+        margin: 5% auto;
+        max-height: 90vh;
+        overflow-y: auto;
         padding: 1rem;
     }
 
     .claim-details-grid {
+        display: grid;
         grid-template-columns: 1fr;
         gap: 0.75rem;
     }
 
     .detail-item {
-        padding: 0.5rem;
-    }
-
-    /* Admin Login Styles */
-    .admin-login-container {
-        width: 90%;
-        margin: 1rem auto;
-        padding: 1.5rem;
-    }
-
-    .admin-login-header h1 {
-        font-size: 2rem;
-    }
-
-    /* Confirmation Page Styles */
-    .confirmation-box {
-        width: 90%;
-        margin: 1rem auto;
-        padding: 1.5rem;
-    }
-
-    .reference-number {
-        font-size: 1rem;
-        word-break: break-all;
-    }
-
-    /* Button Styles */
-    .button, button {
-        width: 100%;
         padding: 0.75rem;
-        font-size: 0.9rem;
+        font-size: 14px;
     }
 
-    /* Table Responsive Styles */
-    .table-responsive {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+    .detail-item strong {
+        font-size: 12px;
     }
 
-    table {
-        min-width: 600px;
-    }
-
-    /* Status Badge Styles */
-    .status-badge {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.8rem;
-    }
-
-    /* Navigation Styles */
-    .nav-links {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    /* File Upload Area */
-    .file-upload-area {
+    /* Improve touch targets */
+    .close {
         padding: 1rem;
-    }
-
-    .file-upload-text {
-        font-size: 0.9rem;
-    }
-
-    /* Flash Messages */
-    .flash-message {
-        padding: 0.75rem;
-        margin: 0.5rem 0;
-        font-size: 0.9rem;
+        font-size: 24px;
+        position: sticky;
+        top: 0;
+        right: 0;
+        background: white;
+        z-index: 1;
     }
 }
 
 /* Small Mobile Devices */
 @media screen and (max-width: 480px) {
-    /* Further adjustments for very small screens */
+    .admin-dashboard {
+        padding: 0.25rem;
+    }
+
     .admin-header h1 {
         font-size: 1.25rem;
+        padding: 0.5rem;
+    }
+
+    .admin-controls {
+        padding: 0.5rem;
+    }
+
+    .search-box input,
+    .filter-box select,
+    .export-btn,
+    .logout-btn {
+        font-size: 14px;
     }
 
     .admin-table {
-        font-size: 0.8rem;
+        font-size: 13px;
     }
 
-    .admin-table th,
-    .admin-table td {
+    .actions button {
         padding: 0.4rem;
+        font-size: 13px;
     }
 
+    /* Improve modal on small devices */
     .modal-content {
-        padding: 0.75rem;
+        width: 95%;
+        margin: 2.5% auto;
     }
 
     .detail-item {
-        font-size: 0.85rem;
-    }
-
-    .reference-number {
-        font-size: 0.9rem;
-    }
-
-    /* Improve touch targets */
-    button, 
-    .button,
-    input[type="submit"] {
-        min-height: 44px;
-    }
-
-    select {
-        height: 44px;
+        padding: 0.5rem;
+        font-size: 13px;
     }
 }
 
 /* Landscape Mode */
 @media screen and (max-height: 480px) and (orientation: landscape) {
-    .admin-login-container,
-    .confirmation-box,
+    .admin-dashboard {
+        height: 100vh;
+        overflow-y: auto;
+    }
+
     .modal-content {
-        max-height: 85vh;
+        height: 90vh;
         overflow-y: auto;
     }
 
     .admin-header {
         position: sticky;
         top: 0;
-        background: inherit;
+        background: white;
         z-index: 10;
+        padding: 0.5rem;
     }
 }
