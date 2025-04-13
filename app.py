@@ -29,77 +29,54 @@ logger = logging.getLogger(__name__)
 # Initialize Flask app
 app = Flask(__name__)
 
-# Configure static files
-app.static_folder = 'static'
-app.static_url_path = '/static'
+# Basic configuration
+app.config.update(
+    SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-key-123'),
+    UPLOAD_FOLDER=os.environ.get('UPLOAD_FOLDER', 'uploads'),
+    MAX_CONTENT_LENGTH=5 * 1024 * 1024,  # 5MB max file size
+    STATIC_FOLDER='static',
+    STATIC_URL_PATH='/static'
+)
 
-# Environment-specific configuration
+# Database configuration
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Session configuration
 if os.environ.get('FLASK_ENV') == 'production':
-    # Production settings
-    app.config.update(
-        SECRET_KEY=os.environ.get('SECRET_KEY', os.urandom(24).hex()),
-        STATIC_FOLDER='static',
-        STATIC_URL_PATH='/static'
-    )
-    
-    # Try Redis first, fallback to filesystem if it fails
     try:
         redis_url = os.environ.get('REDIS_URL')
         if redis_url:
             app.config['SESSION_TYPE'] = 'redis'
             app.config['SESSION_REDIS'] = redis.from_url(redis_url)
-            app.logger.info("Using Redis for session storage")
+            logger.info("Using Redis for session storage")
         else:
-            app.logger.warning("REDIS_URL not set, using filesystem session")
             app.config['SESSION_TYPE'] = 'filesystem'
             app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
+            logger.warning("Redis URL not set, using filesystem sessions")
     except Exception as e:
-        app.logger.warning(f"Redis connection failed, falling back to filesystem: {str(e)}")
+        logger.error(f"Redis connection failed: {str(e)}")
         app.config['SESSION_TYPE'] = 'filesystem'
         app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 else:
-    # Development settings
-    app.config.update(
-        SECRET_KEY='dev-secret-key-123',
-        SESSION_TYPE='filesystem',
-        SESSION_FILE_DIR=os.path.join(app.root_path, 'flask_session')
-    )
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 
-# Session configuration
-app.config['SESSION_COOKIE_SECURE'] = True
-app.config['SESSION_COOKIE_HTTPONLY'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
-app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
+# Ensure upload and session directories exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+os.makedirs(app.config['STATIC_FOLDER'], exist_ok=True)
 
-# Initialize Flask-Session
-try:
-    Session(app)
-    app.logger.info("Session initialized successfully")
-except Exception as e:
-    app.logger.error(f"Error initializing session: {str(e)}")
-    app.logger.error(traceback.format_exc())
-    # Continue anyway, as we have fallback mechanisms
-
-# Database Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///warranty_claims.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Admin credentials - with fallback values
-ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
-
-# Initialize database
+# Initialize extensions
 db.init_app(app)
 
 # Create database tables
 with app.app_context():
     try:
-        app.logger.info("Initializing database...")
         db.create_all()
-        app.logger.info("Database initialized successfully")
+        logger.info("Database tables created successfully")
     except Exception as e:
-        app.logger.error(f"Database initialization error: {str(e)}")
-        app.logger.error(traceback.format_exc())
+        logger.error(f"Error creating database tables: {str(e)}")
 
 # Allowed file extensions for upload
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx'}
@@ -538,19 +515,10 @@ def health_check():
             'error': str(e)
         }), 500
 
-# Add route to serve static files in production
+# Serve static files in production
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    return send_from_directory(app.static_folder, filename)
-
-# Ensure static folders exist
-os.makedirs(app.static_folder, exist_ok=True)
-os.makedirs(os.path.join(app.static_folder, 'css'), exist_ok=True)
+    return send_from_directory(app.config['STATIC_FOLDER'], filename)
 
 if __name__ == '__main__':
-    # Ensure directories exist
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    if app.config['SESSION_TYPE'] == 'filesystem':
-        os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
-    
     app.run(host='127.0.0.1', port=5001, debug=True)

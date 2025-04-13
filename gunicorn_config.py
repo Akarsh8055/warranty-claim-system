@@ -1,10 +1,38 @@
 import os
 
 # Get port from environment variable
-port = int(os.environ.get("PORT", 10000))
+bind = "0.0.0.0:10000"
 
-# Bind to all interfaces
-bind = f"0.0.0.0:{port}"
+# Worker configuration
+workers = 2
+threads = 1
+worker_class = 'sync'
+worker_connections = 1000
+timeout = 30
+keepalive = 2
+
+# Logging
+accesslog = '-'
+errorlog = '-'
+loglevel = 'info'
+
+# SSL Configuration (if needed)
+keyfile = None
+certfile = None
+
+# Server mechanics
+daemon = False
+pidfile = None
+umask = 0
+user = None
+group = None
+tmp_upload_dir = None
+
+# Debugging
+reload = False
+reload_engine = 'auto'
+spew = False
+check_config = False
 
 # Worker configuration - reduce for Render's free tier
 workers = 2
@@ -21,9 +49,6 @@ enable_stdio_inheritance = True
 
 # Worker timeout
 graceful_timeout = 60
-
-# Keep-alive
-keepalive = 5
 
 # Maximum requests per worker
 max_requests = 1000
