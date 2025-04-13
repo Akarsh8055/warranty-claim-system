@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claim Submitted - Warranty Claims</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="confirmation-box">
+            <div class="success-circle">✓</div>
+            <h1>Claim Submitted Successfully</h1>
+            
+            <div class="reference-number">
+                <strong>Reference Number:</strong> {{ reference_number }}
+            </div>
+
+            <div class="details">
+                <div class="detail-item">
+                    <h3>Claim Details</h3>
+                    <p><strong>Name:</strong> {{ data.name }}</p>
+                    <p><strong>Product:</strong> {{ data.product }}</p>
+                    <p><strong>Purchase Date:</strong> {{ data.purchase_date }}</p>
+                    <p><strong>Issue:</strong> {{ data.issue }}</p>
+                </div>
+
+                <div class="detail-item">
+                    <h3>Next Steps</h3>
+                    <p>We have received your warranty claim and will review it within 2-3 business days.</p>
+                    <p>Please keep your reference number for future correspondence.</p>
+                    <p>Our team will contact you regarding the status of your claim.</p>
+                </div>
+            </div>
+
+            <a href="{{ url_for('index') }}" class="back-link">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const confirmationBox = document.querySelector('.confirmation-box');
+            confirmationBox.style.opacity = '0';
+            confirmationBox.style.transform = 'translateY(20px)';
+            
+            setTimeout(function() {
+                confirmationBox.style.transition = 'all 0.5s ease';
+                confirmationBox.style.opacity = '1';
+                confirmationBox.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body>
+</html> 

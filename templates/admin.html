@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Warranty Claims</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>Warranty Claims Dashboard</h1>
+            <a href="{{ url_for('admin_logout') }}" class="logout-btn">Logout</a>
+        </div>
+
+        <div class="admin-controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search claims..." onkeyup="searchTable()">
+            </div>
+            <div class="filter-box">
+                <select id="statusFilter" onchange="filterByStatus()">
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                </select>
+            </div>
+            <a href="{{ url_for('export_csv') }}" class="export-btn">Export to CSV</a>
+        </div>
+
+        <div class="claims-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Product</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for claim in claims %}
+                    <tr>
+                        <td>{{ claim.name }}</td>
+                        <td>{{ claim.product }}</td>
+                        <td>{{ claim.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <span class="status-badge {{ claim.status }}">{{ claim.status }}</span>
+                        </td>
+                        <td class="actions">
+                            <button onclick="viewClaim('{{ claim.id }}')" class="view-btn">
+                                <span class="icon">👁️</span>
+                                View
+                            </button>
+                            {% if claim.status == 'pending' %}
+                            <button onclick="updateStatus('{{ claim.id }}', 'approved')" class="approve-btn">
+                                <span class="icon">✓</span>
+                                Approve
+                            </button>
+                            <button onclick="updateStatus('{{ claim.id }}', 'rejected')" class="reject-btn">
+                                <span class="icon">✕</span>
+                                Reject
+                            </button>
+                            {% endif %}
+                            {% if claim.file_path %}
+                            <a href="{{ url_for('download_file', claim_id=claim.id) }}" class="download-btn">
+                                <span class="icon">📎</span>
+                                Download
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Claim Details Modal -->
+    <div id="claimModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Claim Details</h2>
+            <div id="claimDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        function searchTable() {
+            let input = document.getElementById("searchInput");
+            let filter = input.value.toLowerCase();
+            let table = document.querySelector("table");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let td = tr[i].getElementsByTagName("td");
+                let found = false;
+                for (let j = 0; j < td.length - 1; j++) {
+                    let cell = td[j];
+                    if (cell) {
+                        let text = cell.textContent || cell.innerText;
+                        if (text.toLowerCase().indexOf(filter) > -1) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                tr[i].style.display = found ? "" : "none";
+            }
+        }
+
+        // Filter by status
+        function filterByStatus() {
+            let filter = document.getElementById("statusFilter").value;
+            let table = document.querySelector("table");
+            let tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let statusCell = tr[i].getElementsByTagName("td")[3];
+                if (statusCell) {
+                    let status = statusCell.textContent || statusCell.innerText;
+                    tr[i].style.display = (filter === "all" || status.toLowerCase().includes(filter)) ? "" : "none";
+                }
+            }
+        }
+
+        // View claim details
+        function viewClaim(claimId) {
+            fetch(`/claim/${claimId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    let modal = document.getElementById("claimModal");
+                    let detailsDiv = document.getElementById("claimDetails");
+                    
+                    const statusClass = data.status.toLowerCase();
+                    const formattedDate = new Date(data.created_at).toLocaleString();
+                    
+                    detailsDiv.innerHTML = `
+                        <div class="claim-details-grid">
+                            <div class="detail-item">
+                                <strong>Reference Number:</strong>
+                                <span>${data.reference_number}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Status:</strong>
+                                <span class="status-badge ${statusClass}">${data.status}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Name:</strong>
+                                <span>${data.name}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Email:</strong>
+                                <span>${data.email}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Phone:</strong>
+                                <span>${data.phone}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Product:</strong>
+                                <span>${data.product}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Purchase Date:</strong>
+                                <span>${data.purchase_date}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Defect Reason:</strong>
+                                <span>${data.defect_reason}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Warranty Option:</strong>
+                                <span>${data.warranty_option}</span>
+                            </div>
+                            <div class="detail-item">
+                                <strong>Submitted:</strong>
+                                <span>${formattedDate}</span>
+                            </div>
+                            <div class="detail-item full-width">
+                                <strong>Issue Description:</strong>
+                                <p>${data.issue}</p>
+                            </div>
+                            ${data.has_file ? `
+                            <div class="detail-item">
+                                <strong>Attachment:</strong>
+                                <a href="/authorized/management/admin/download/${data.id}" class="download-btn">
+                                    <span class="icon">📎</span> Download File
+                                </a>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                    modal.style.display = "block";
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load claim details. Please try again.');
+                });
+        }
+
+        // Update claim status
+        function updateStatus(claimId, status) {
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = `<span class="icon">⌛</span> Processing...`;
+
+            const endpoint = status === 'approved' 
+                ? `/authorized/management/admin/approve/${claimId}`
+                : `/authorized/management/admin/reject/${claimId}`;
+
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    // Show success feedback
+                    button.innerHTML = `<span class="icon">✓</span> Done!`;
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    throw new Error(data.error || 'Failed to update status');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                button.innerHTML = originalText;
+                button.disabled = false;
+                alert('Failed to update claim status. Please try again.');
+            });
+        }
+
+        // Modal close button
+        document.querySelector(".close").onclick = function() {
+            document.getElementById("claimModal").style.display = "none";
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            let modal = document.getElementById("claimModal");
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>

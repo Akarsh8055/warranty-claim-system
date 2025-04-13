@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warranty Claim Form</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="loading-overlay">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="form-header">
+            <h1>Warranty Claim</h1>
+            <div class="tagline">We're here to help with your product warranty</div>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <div class="form-content">
+            <form action="{{ url_for('submit_claim') }}" method="post" enctype="multipart/form-data" id="warranty-form">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" required placeholder="Enter your full name">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required placeholder="Enter your email address">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" required placeholder="Enter your phone number">
+                </div>
+
+                <div class="form-group">
+                    <label for="product">Product Name/Model</label>
+                    <input type="text" id="product" name="product" required placeholder="Enter product name or model">
+                </div>
+
+                <div class="form-group">
+                    <label for="purchase_date">Purchase Date</label>
+                    <input type="date" id="purchase_date" name="purchase_date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="issue">Issue Description</label>
+                    <textarea id="issue" name="issue" rows="4" required placeholder="Please describe the issue in detail"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="defect-reason">Defect Reason</label>
+                    <select id="defect-reason" name="defect-reason" required>
+                        <option value="">Select a reason</option>
+                        <option value="manufacturing">Manufacturing Defect</option>
+                        <option value="damage">Physical Damage</option>
+                        <option value="performance">Performance Issue</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="warranty-option">Warranty Option</label>
+                    <select id="warranty-option" name="warranty-option" required>
+                        <option value="">Select warranty type</option>
+                        <option value="standard">Standard Warranty</option>
+                        <option value="extended">Extended Warranty</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Supporting Documents</label>
+                    <div class="file-upload">
+                        <div class="file-upload-text">Drag and drop your files here or click to browse</div>
+                        <input type="file" id="document" name="document" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+                        <span class="file-formats">Accepted formats: PDF, JPG, PNG, DOC, DOCX</span>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="confirm" name="confirm" required>
+                    <label for="confirm">I confirm that all the information provided above is correct and accurate</label>
+                </div>
+
+                <button type="submit" id="submit-btn" disabled>Submit Claim</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Enable submit button only when checkbox is checked
+        document.getElementById('confirm').addEventListener('change', function() {
+            document.getElementById('submit-btn').disabled = !this.checked;
+        });
+
+        // Show loading overlay on form submission
+        document.getElementById('warranty-form').addEventListener('submit', function() {
+            document.querySelector('.loading-overlay').style.display = 'flex';
+            document.getElementById('submit-btn').disabled = true;
+        });
+
+        // File upload visual feedback
+        document.getElementById('document').addEventListener('change', function() {
+            const fileName = this.files[0]?.name;
+            if (fileName) {
+                this.parentElement.querySelector('.file-upload-text').textContent = `Selected file: ${fileName}`;
+            }
+        });
+
+        // Animate form on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('.form-content');
+            form.style.opacity = '0';
+            form.style.transform = 'translateY(20px)';
+            
+            setTimeout(function() {
+                form.style.transition = 'all 0.5s ease';
+                form.style.opacity = '1';
+                form.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body>
+</html>
