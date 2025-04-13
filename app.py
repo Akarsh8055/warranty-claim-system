@@ -2,12 +2,12 @@ import os
 import random
 import string
 import logging
+import traceback
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, session, Response, send_file, jsonify
 from werkzeug.utils import secure_filename
 import uuid
 from models import db, WarrantyClaim
-import traceback
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
@@ -73,9 +73,6 @@ def submit_claim():
             defect_reason = request.form.get('defect-reason')
             warranty_option = request.form.get('warranty-option')
 
-            # Debug log
-            logger.debug(f"Received form data: {request.form}")
-
             # Validate required fields
             if not all([name, email, phone, product, purchase_date, issue, defect_reason, warranty_option]):
                 missing_fields = [field for field, value in {
@@ -100,20 +97,18 @@ def submit_claim():
                 return redirect(url_for('index'))
 
             # File upload handling
-            uploaded_file = request.files.get('document')
+            uploaded_file = request.files.get('supporting_document')
             file_path = None
 
             if uploaded_file and uploaded_file.filename:
                 if not allowed_file(uploaded_file.filename):
-                    flash('Invalid file type. Please upload PDF, JPG, JPEG, PNG, DOC or DOCX files.', 'error')
+                    flash('Invalid file type. Please upload PDF, JPG, JPEG, PNG files.', 'error')
                     return redirect(url_for('index'))
 
                 try:
                     filename = secure_filename(uploaded_file.filename)
                     unique_filename = f"{uuid.uuid4().hex}_{filename}"
                     file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-
-                    # Save the file
                     uploaded_file.save(file_path)
                 except Exception as e:
                     logger.error(f"File upload error: {str(e)}")
@@ -124,7 +119,7 @@ def submit_claim():
             reference_number = generate_reference_number()
 
             try:
-                # Create new warranty claim in the database
+                # Create new warranty claim
                 new_claim = WarrantyClaim(
                     reference_number=reference_number,
                     name=name,
@@ -202,17 +197,39 @@ def confirmation():
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+    try:
+        # Clear any existing session data
+        session.clear()
+        
+        if request.method == 'POST':
+            username = request.form.get('username')
+            password = request.form.get('password')
 
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session['admin_authenticated'] = True
-            return redirect(url_for('admin_dashboard'))
-        else:
-            flash('Invalid credentials. Please try again.', 'error')
-    
-    return render_template('admin_login.html')
+            if not username or not password:
+                logger.warning("Admin login attempt with missing credentials")
+                flash('Please provide both username and password.', 'error')
+                return render_template('admin_login.html')
+
+            # Get admin credentials from environment variables
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'WarrantyClaim2024@Secure')
+
+            if username == admin_username and password == admin_password:
+                logger.info(f"Successful admin login for user: {username}")
+                session['admin_authenticated'] = True
+                session.permanent = True  # Make the session last longer
+                return redirect(url_for('admin_dashboard'))
+            else:
+                logger.warning(f"Failed admin login attempt for user: {username}")
+                flash('Invalid credentials. Please try again.', 'error')
+                return render_template('admin_login.html')
+
+        return render_template('admin_login.html')
+    except Exception as e:
+        logger.error(f"Error during admin login: {str(e)}")
+        logger.error(traceback.format_exc())
+        flash('An error occurred. Please try again.', 'error')
+        return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -221,31 +238,51 @@ def admin_logout():
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    if not session.get('admin_authenticated'):
-        return redirect(url_for('admin_login'))
-    
-    claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
-    return render_template('admin.html', claims=claims)
+    try:
+        if not session.get('admin_authenticated'):
+            logger.warning("Unauthorized access attempt to admin dashboard")
+            flash('Please login to access the admin dashboard.', 'error')
+            return redirect(url_for('admin_login'))
 
-@app.route('/admin/claim/<int:claim_id>')
-def admin_view_claim(claim_id):
-    if not session.get('admin_authenticated'):
+        logger.info("Loading admin dashboard")
+        claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
+        return render_template('admin.html', claims=claims)
+    except Exception as e:
+        logger.error(f"Error accessing dashboard: {str(e)}")
+        logger.error(traceback.format_exc())
+        flash('Error loading dashboard. Please try again.', 'error')
         return redirect(url_for('admin_login'))
-    
-    claim = WarrantyClaim.query.get_or_404(claim_id)
-    return render_template('admin_view.html', claim=claim)
+
+@app.route('/admin/view/<int:claim_id>')
+def view_claim(claim_id):
+    if not session.get('admin_authenticated'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        claim = WarrantyClaim.query.get_or_404(claim_id)
+        claim_data = claim.to_dict()
+        claim_data['has_file'] = bool(claim.file_path)
+        return jsonify(claim_data)
+    except Exception as e:
+        logger.error(f"Error viewing claim: {str(e)}")
+        return jsonify({'error': 'Failed to load claim details'}), 500
 
 @app.route('/admin/download/<int:claim_id>')
-def admin_download_file(claim_id):
+def download_file(claim_id):
     if not session.get('admin_authenticated'):
         return redirect(url_for('admin_login'))
-    
-    claim = WarrantyClaim.query.get_or_404(claim_id)
-    if not claim.file_path:
-        flash('No file attached to this claim.', 'error')
-        return redirect(url_for('admin_view_claim', claim_id=claim_id))
-    
-    return send_file(claim.file_path, as_attachment=True)
+
+    try:
+        claim = WarrantyClaim.query.get_or_404(claim_id)
+        if not claim.file_path:
+            flash('No file attached to this claim.', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        return send_file(claim.file_path, as_attachment=True)
+    except Exception as e:
+        logger.error(f"Error downloading file: {str(e)}")
+        flash('Error downloading file.', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/approve/<int:claim_id>', methods=['POST'])
 def approve_claim(claim_id):
