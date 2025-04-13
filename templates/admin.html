@@ -51,7 +51,7 @@
                         <td>{{ claim.name }}</td>
                         <td>{{ claim.product }}</td>
                         <td><span class="status-badge {{ claim.status.lower() }}">{{ claim.status }}</span></td>
-                        <td>{{ claim.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ claim.created_at.split('T')[0] if claim.created_at else 'N/A' }}</td>
                         <td class="actions">
                             <button onclick="viewClaim('{{ claim.id }}')" class="view-btn">
                                 <span class="icon">👁️</span> View
