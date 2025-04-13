@@ -27,17 +27,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app with static file configuration
-app = Flask(__name__, 
-    static_url_path='/static',
-    static_folder='static'
-)
+app = Flask(__name__)
 
 # Environment-specific configuration
 if os.environ.get('FLASK_ENV') == 'production':
     # Production settings
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
     app.config['STATIC_FOLDER'] = os.path.join(os.getcwd(), 'static')
-    app.config['STATIC_URL_PATH'] = '/static'
+    app.config['STATIC_URL_PATH'] = ''
     
     # Try Redis first, fallback to filesystem if it fails
     try:
@@ -537,6 +534,10 @@ def health_check():
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(app.static_folder, filename)
+
+# Ensure static folder exists
+os.makedirs(os.path.join(os.getcwd(), 'static'), exist_ok=True)
+os.makedirs(os.path.join(os.getcwd(), 'static/css'), exist_ok=True)
 
 if __name__ == '__main__':
     # Ensure directories exist
