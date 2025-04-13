@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask app with static file configuration
 app = Flask(__name__, 
-    static_url_path='',
+    static_url_path='/static',
     static_folder='static'
 )
 
@@ -36,8 +36,8 @@ app = Flask(__name__,
 if os.environ.get('FLASK_ENV') == 'production':
     # Production settings
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
-    app.config['STATIC_FOLDER'] = 'static'
-    app.config['STATIC_URL_PATH'] = ''
+    app.config['STATIC_FOLDER'] = os.path.join(os.getcwd(), 'static')
+    app.config['STATIC_URL_PATH'] = '/static'
     
     # Try Redis first, fallback to filesystem if it fails
     try:
