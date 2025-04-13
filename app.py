@@ -26,6 +26,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
 
+# Admin credentials from environment variables
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'WarrantyClaim2024@Secure')
+
 # Ensure upload directory exists
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
@@ -196,56 +200,84 @@ def confirmation():
 
     return render_template('confirmation.html', reference_number=reference_number, data=submission_data)
 
-@app.route('/authorized/management/admin/login', methods=['GET', 'POST'])
+@app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     if request.method == 'POST':
+        username = request.form.get('username')
         password = request.form.get('password')
 
-        if password == ADMIN_PASSWORD:
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['admin_authenticated'] = True
-            return redirect(url_for('admin'))
+            return redirect(url_for('admin_dashboard'))
         else:
-            flash('Invalid password. Please try again.', 'error')
-            return redirect(url_for('admin_login'))
-
+            flash('Invalid credentials. Please try again.', 'error')
+    
     return render_template('admin_login.html')
 
-@app.route('/authorized/management/admin/logout')
+@app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_authenticated', None)
-    return redirect(url_for('index'))
+    return redirect(url_for('admin_login'))
 
-@app.route('/authorized/management/admin/dashboard')
-def admin():
-    # Check if user is authenticated
+@app.route('/admin/dashboard')
+def admin_dashboard():
     if not session.get('admin_authenticated'):
         return redirect(url_for('admin_login'))
-
-    # Get all claims
+    
     claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
     return render_template('admin.html', claims=claims)
 
-@app.route('/authorized/management/admin/view/<int:claim_id>')
-def view_claim(claim_id):
-    # Check if user is authenticated
+@app.route('/admin/claim/<int:claim_id>')
+def admin_view_claim(claim_id):
     if not session.get('admin_authenticated'):
         return redirect(url_for('admin_login'))
-
+    
     claim = WarrantyClaim.query.get_or_404(claim_id)
     return render_template('admin_view.html', claim=claim)
 
-@app.route('/authorized/management/admin/download/<int:claim_id>')
-def download_file(claim_id):
-    # Check if user is authenticated
+@app.route('/admin/download/<int:claim_id>')
+def admin_download_file(claim_id):
     if not session.get('admin_authenticated'):
         return redirect(url_for('admin_login'))
-
+    
     claim = WarrantyClaim.query.get_or_404(claim_id)
     if not claim.file_path:
         flash('No file attached to this claim.', 'error')
-        return redirect(url_for('view_claim', claim_id=claim_id))
-
+        return redirect(url_for('admin_view_claim', claim_id=claim_id))
+    
     return send_file(claim.file_path, as_attachment=True)
+
+@app.route('/admin/approve/<int:claim_id>', methods=['POST'])
+def approve_claim(claim_id):
+    if not session.get('admin_authenticated'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        claim = WarrantyClaim.query.get_or_404(claim_id)
+        claim.status = 'approved'
+        claim.updated_at = datetime.now()
+        db.session.commit()
+        return {'message': 'Claim approved successfully'}, 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error approving claim: {str(e)}")
+        return {'error': 'Failed to approve claim'}, 500
+
+@app.route('/admin/reject/<int:claim_id>', methods=['POST'])
+def reject_claim(claim_id):
+    if not session.get('admin_authenticated'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        claim = WarrantyClaim.query.get_or_404(claim_id)
+        claim.status = 'rejected'
+        claim.updated_at = datetime.now()
+        db.session.commit()
+        return {'message': 'Claim rejected successfully'}, 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error rejecting claim: {str(e)}")
+        return {'error': 'Failed to reject claim'}, 500
 
 @app.route('/authorized/management/admin/export')
 def export_csv():
@@ -264,67 +296,6 @@ def export_csv():
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=warranty_claims.csv"}
     )
-
-@app.route('/authorized/management/admin/approve/<int:claim_id>', methods=['POST'])
-def approve_claim(claim_id):
-    # Check if user is authenticated
-    if not session.get('admin_authenticated'):
-        return {'error': 'Unauthorized'}, 401
-
-    try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
-        claim.status = 'approved'
-        claim.updated_at = datetime.now()
-        db.session.commit()
-        return {'message': 'Claim approved successfully'}, 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error approving claim: {str(e)}")
-        return {'error': 'Failed to approve claim'}, 500
-
-@app.route('/authorized/management/admin/reject/<int:claim_id>', methods=['POST'])
-def reject_claim(claim_id):
-    # Check if user is authenticated
-    if not session.get('admin_authenticated'):
-        return {'error': 'Unauthorized'}, 401
-
-    try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
-        claim.status = 'rejected'
-        claim.updated_at = datetime.now()
-        db.session.commit()
-        return {'message': 'Claim rejected successfully'}, 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error rejecting claim: {str(e)}")
-        return {'error': 'Failed to reject claim'}, 500
-
-@app.route('/claim/<int:claim_id>')
-def get_claim_json(claim_id):
-    # Check if user is authenticated
-    if not session.get('admin_authenticated'):
-        return {'error': 'Unauthorized'}, 401
-
-    try:
-        claim = WarrantyClaim.query.get_or_404(claim_id)
-        return {
-            'id': claim.id,
-            'reference_number': claim.reference_number,
-            'name': claim.name,
-            'email': claim.email,
-            'phone': claim.phone,
-            'product': claim.product,
-            'purchase_date': claim.purchase_date,
-            'issue': claim.issue,
-            'defect_reason': claim.defect_reason,
-            'warranty_option': claim.warranty_option,
-            'status': claim.status,
-            'created_at': claim.created_at.isoformat(),
-            'has_file': bool(claim.file_path)
-        }
-    except Exception as e:
-        logger.error(f"Error fetching claim details: {str(e)}")
-        return {'error': 'Failed to fetch claim details'}, 500
 
 @app.route('/test-email-template')
 def test_email_template():
