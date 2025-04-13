@@ -32,15 +32,27 @@ app = Flask(__name__)
 if os.environ.get('FLASK_ENV') == 'production':
     # Production settings
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
-    app.config['SESSION_TYPE'] = 'redis'
-    app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('REDIS_URL'))
+    
+    # Try Redis first, fallback to filesystem if it fails
+    try:
+        redis_url = os.environ.get('REDIS_URL')
+        if redis_url:
+            app.config['SESSION_TYPE'] = 'redis'
+            app.config['SESSION_REDIS'] = redis.from_url(redis_url)
+            app.logger.info("Using Redis for session storage")
+        else:
+            raise ValueError("REDIS_URL not set")
+    except Exception as e:
+        app.logger.warning(f"Redis connection failed, falling back to filesystem: {str(e)}")
+        app.config['SESSION_TYPE'] = 'filesystem'
+        app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 else:
     # Development settings
     app.config['SECRET_KEY'] = 'dev-secret-key-123'
     app.config['SESSION_TYPE'] = 'filesystem'
     app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
 
-app.config['SESSION_COOKIE_SECURE'] = False
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=2)
 app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER', 'uploads')
@@ -225,44 +237,39 @@ def confirmation():
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
-    try:
-        # If already logged in, redirect to dashboard
-        if session.get('admin_authenticated'):
-            return redirect(url_for('admin_dashboard'))
-
-        if request.method == 'POST':
+    if request.method == 'POST':
+        try:
             username = request.form.get('username')
             password = request.form.get('password')
-
-            logger.info(f"Login attempt with username: {username}")
-
+            
+            app.logger.info(f"Login attempt for username: {username}")
+            
             if not username or not password:
-                flash('Please provide both username and password.', 'error')
-                return render_template('admin_login.html')
-
-            # Check credentials
-            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-                # Set session data
-                session['admin_authenticated'] = True
-                session['admin_ip'] = request.remote_addr
-                session['admin_ua'] = request.user_agent.string
-                session['last_activity'] = time.time()
+                flash('Please enter both username and password', 'error')
+                app.logger.warning("Login attempt with missing credentials")
+                return redirect(url_for('admin_login'))
+            
+            # Get admin credentials from environment variables
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            
+            if username == admin_username and password == admin_password:
+                session['admin_logged_in'] = True
                 session.permanent = True
-                
-                logger.info(f"Successful login for user: {username}")
-                flash('Login successful!', 'success')
+                app.logger.info("Admin login successful")
                 return redirect(url_for('admin_dashboard'))
             else:
-                logger.warning(f"Failed login attempt for username: {username}")
-                flash('Invalid username or password.', 'error')
-                return render_template('admin_login.html')
-
-        return render_template('admin_login.html')
-    except Exception as e:
-        logger.error(f"Error in login: {str(e)}")
-        logger.error(traceback.format_exc())
-        flash('An error occurred. Please try again.', 'error')
-        return render_template('admin_login.html')
+                flash('Invalid username or password', 'error')
+                app.logger.warning(f"Failed login attempt for username: {username}")
+                return redirect(url_for('admin_login'))
+                
+        except Exception as e:
+            app.logger.error(f"Error during admin login: {str(e)}")
+            app.logger.error(traceback.format_exc())
+            flash('An error occurred during login. Please try again.', 'error')
+            return redirect(url_for('admin_login'))
+    
+    return render_template('admin_login.html')
 
 @app.route('/admin/logout')
 def admin_logout():
