@@ -66,7 +66,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Admin credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'Admin@6906')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
 
 # Initialize database
 db.init_app(app)
@@ -249,12 +249,8 @@ def admin_login():
                 app.logger.warning("Login attempt with missing credentials")
                 return redirect(url_for('admin_login'))
             
-            # Get admin credentials from environment variables
-            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
-            
-            if username == admin_username and password == admin_password:
-                session['admin_logged_in'] = True
+            if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+                session['admin_authenticated'] = True
                 session.permanent = True
                 app.logger.info("Admin login successful")
                 return redirect(url_for('admin_dashboard'))
@@ -292,8 +288,8 @@ def admin_dashboard():
         claims = WarrantyClaim.query.order_by(WarrantyClaim.created_at.desc()).all()
         return render_template('admin.html', claims=claims)
     except Exception as e:
-        logger.error(f"Error in admin dashboard: {str(e)}")
-        logger.error(traceback.format_exc())
+        app.logger.error(f"Error in admin dashboard: {str(e)}")
+        app.logger.error(traceback.format_exc())
         flash('Error loading dashboard. Please try again.', 'error')
         return redirect(url_for('admin_login'))
 
@@ -339,7 +335,7 @@ def download_file(claim_id):
 
 @app.route('/authorized/management/admin/approve/<int:claim_id>', methods=['POST'])
 def approve_claim(claim_id):
-    if not session.get('admin_logged_in'):
+    if not session.get('admin_authenticated'):
         app.logger.warning(f'Unauthorized attempt to approve claim {claim_id}')
         return jsonify({'success': False, 'error': 'Unauthorized access'}), 401
     
@@ -370,7 +366,7 @@ def approve_claim(claim_id):
 
 @app.route('/authorized/management/admin/reject/<int:claim_id>', methods=['POST'])
 def reject_claim(claim_id):
-    if not session.get('admin_logged_in'):
+    if not session.get('admin_authenticated'):
         app.logger.warning(f'Unauthorized attempt to reject claim {claim_id}')
         return jsonify({'success': False, 'error': 'Unauthorized access'}), 401
     
